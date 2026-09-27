@@ -14,34 +14,34 @@ class ElaSlider;
 class ElaRadioButton;
 class ElaProgressBar;
 class ElaProgressRing;
-class T_BaseComponents : public T_BasePage
-{
-    Q_OBJECT
+
+class T_BaseComponents : public T_BasePage {
+  Q_OBJECT
 public:
-    Q_INVOKABLE explicit T_BaseComponents(QWidget* parent = nullptr);
-    ~T_BaseComponents() override;
+  Q_INVOKABLE explicit T_BaseComponents(QWidget *parent = nullptr);
+  ~T_BaseComponents() override;
 
 protected:
-    virtual void mouseReleaseEvent(QMouseEvent* event);
+  virtual void mouseReleaseEvent(QMouseEvent *event);
 
 private:
-    ElaToggleSwitch* _toggleSwitch{nullptr};
-    ElaToggleButton* _toggleButton{nullptr};
-    ElaComboBox* _comboBox{nullptr};
-    ElaMultiSelectComboBox* _multiSelectComboBox{nullptr};
-    ElaMessageButton* _messageButton{nullptr};
-    ElaMessageButton* _infoMessageButton{nullptr};
-    ElaMessageButton* _warningMessageButton{nullptr};
-    ElaMessageButton* _errorMessageButton{nullptr};
-    ElaCheckBox* _checkBox{nullptr};
-    ElaSpinBox* _spinBox{nullptr};
-    ElaSlider* _slider{nullptr};
-    ElaRadioButton* _radioButton{nullptr};
-    ElaProgressBar* _progressBar{nullptr};
-    ElaProgressRing* _progressRing{nullptr};
-    ElaProgressRing* _progressPercentRing{nullptr};
-    ElaProgressRing* _progressBusyRing{nullptr};
-    ElaProgressRing* _progressBusyTransparentRing{nullptr};
+  ElaToggleSwitch *_toggleSwitch{nullptr};
+  ElaToggleButton *_toggleButton{nullptr};
+  ElaComboBox *_comboBox{nullptr};
+  ElaMultiSelectComboBox *_multiSelectComboBox{nullptr};
+  ElaMessageButton *_messageButton{nullptr};
+  ElaMessageButton *_infoMessageButton{nullptr};
+  ElaMessageButton *_warningMessageButton{nullptr};
+  ElaMessageButton *_errorMessageButton{nullptr};
+  ElaCheckBox *_checkBox{nullptr};
+  ElaSpinBox *_spinBox{nullptr};
+  ElaSlider *_slider{nullptr};
+  ElaRadioButton *_radioButton{nullptr};
+  ElaProgressBar *_progressBar{nullptr};
+  ElaProgressRing *_progressRing{nullptr};
+  ElaProgressRing *_progressPercentRing{nullptr};
+  ElaProgressRing *_progressBusyRing{nullptr};
+  ElaProgressRing *_progressBusyTransparentRing{nullptr};
 };
 
 #endif // T_BASECOMPONENTS_H

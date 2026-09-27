@@ -7,17 +7,17 @@
 
 class ElaComboBox;
 class ElaImageCard;
-class T_ElaScreen : public T_BasePage
-{
-    Q_OBJECT
+
+class T_ElaScreen : public T_BasePage {
+  Q_OBJECT
 public:
-    Q_INVOKABLE explicit T_ElaScreen(QWidget* parent = nullptr);
-    ~T_ElaScreen() override;
+  Q_INVOKABLE explicit T_ElaScreen(QWidget *parent = nullptr);
+  ~T_ElaScreen() override;
 
 private:
-    ElaImageCard* _dxgiScreen{nullptr};
-    ElaComboBox* _dxComboBox{nullptr};
-    ElaComboBox* _outputComboBox{nullptr};
+  ElaImageCard *_dxgiScreen{nullptr};
+  ElaComboBox *_dxComboBox{nullptr};
+  ElaComboBox *_outputComboBox{nullptr};
 };
 #endif
 #endif // T_ELASCREEN_H

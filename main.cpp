@@ -2,7 +2,7 @@
 #include <QScreen>
 
 #include "ElaApplication.h"
-#include "ElaLog.h"
+// #include "ElaLog.h"
 #include "mainwindow.h"
 
 #ifdef Q_OS_WIN
@@ -24,7 +24,7 @@ int main(int argc, char *argv[]) {
 
   QApplication a(argc, argv);
   eApp->init();
-  ElaLog::getInstance()->initMessageLog(true);
+  // ElaLog::getInstance()->initMessageLog(true);
   MainWindow w;
   w.show();
 

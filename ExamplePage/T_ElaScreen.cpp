@@ -11,87 +11,83 @@
 #include <QThread>
 #include <QTimer>
 #include <QVBoxLayout>
-T_ElaScreen::T_ElaScreen(QWidget* parent)
-    : T_BasePage(parent)
-{
-    // 预览窗口标题
-    setWindowTitle("ElaScreen");
 
-    // 顶部元素
-    createCustomWidget("DXGI录制组件被放置于此，可在此界面预览录制效果");
+T_ElaScreen::T_ElaScreen(QWidget *parent) : T_BasePage(parent) {
+  // 预览窗口标题
+  setWindowTitle("ElaScreen");
 
-    ElaDxgiManager* dxgiManager = ElaDxgiManager::getInstance();
-    dxgiManager->setGrabArea(1920, 1080);
+  // 顶部元素
+  createCustomWidget("DXGI录制组件被放置于此，可在此界面预览录制效果");
 
-    ElaScrollPageArea* dxgiScreenArea = new ElaScrollPageArea(this);
-    dxgiScreenArea->setFixedHeight(700);
-    QHBoxLayout* dxgiScreenLayout = new QHBoxLayout(dxgiScreenArea);
-    _dxgiScreen = new ElaImageCard(this);
-    _dxgiScreen->setFixedHeight(678);
-    dxgiScreenLayout->addWidget(_dxgiScreen);
-    connect(dxgiManager, &ElaDxgiManager::grabImageUpdate, this, [=](const QImage& img) {
-        _dxgiScreen->setCardImage(img);
-    });
+  ElaDxgiManager *dxgiManager = ElaDxgiManager::getInstance();
+  dxgiManager->setGrabArea(1920, 1080);
 
-    ElaText* dxText = new ElaText("显卡选择", this);
-    dxText->setTextPixelSize(15);
-    _dxComboBox = new ElaComboBox(this);
-    _dxComboBox->addItems(dxgiManager->getDxDeviceList());
-    _dxComboBox->setCurrentIndex(dxgiManager->getDxDeviceID());
+  ElaScrollPageArea *dxgiScreenArea = new ElaScrollPageArea(this);
+  dxgiScreenArea->setFixedHeight(700);
+  QHBoxLayout *dxgiScreenLayout = new QHBoxLayout(dxgiScreenArea);
+  _dxgiScreen = new ElaImageCard(this);
+  _dxgiScreen->setFixedHeight(678);
+  dxgiScreenLayout->addWidget(_dxgiScreen);
+  connect(dxgiManager, &ElaDxgiManager::grabImageUpdate, this,
+          [=](const QImage &img) { _dxgiScreen->setCardImage(img); });
 
-    ElaText* outputText = new ElaText("屏幕选择", this);
-    outputText->setTextPixelSize(15);
-    _outputComboBox = new ElaComboBox(this);
-    _outputComboBox->addItems(dxgiManager->getOutputDeviceList());
-    _outputComboBox->setCurrentIndex(dxgiManager->getOutputDeviceID());
+  ElaText *dxText = new ElaText("显卡选择", this);
+  dxText->setTextPixelSize(15);
+  _dxComboBox = new ElaComboBox(this);
+  _dxComboBox->addItems(dxgiManager->getDxDeviceList());
+  _dxComboBox->setCurrentIndex(dxgiManager->getDxDeviceID());
 
-    connect(_dxComboBox, QOverload<int>::of(&ElaComboBox::currentIndexChanged), this, [=](int index) {
-        dxgiManager->setDxDeviceID(index);
-        _outputComboBox->blockSignals(true);
-        _outputComboBox->clear();
-        _outputComboBox->addItems(dxgiManager->getOutputDeviceList());
-        _outputComboBox->setCurrentIndex(dxgiManager->getOutputDeviceID());
-        _outputComboBox->blockSignals(false);
-        _dxgiScreen->update();
-    });
-    connect(_outputComboBox, QOverload<int>::of(&ElaComboBox::currentIndexChanged), this, [=](int index) {
-        dxgiManager->setOutputDeviceID(index);
-        _dxgiScreen->update();
-    });
+  ElaText *outputText = new ElaText("屏幕选择", this);
+  outputText->setTextPixelSize(15);
+  _outputComboBox = new ElaComboBox(this);
+  _outputComboBox->addItems(dxgiManager->getOutputDeviceList());
+  _outputComboBox->setCurrentIndex(dxgiManager->getOutputDeviceID());
 
-    ElaToggleButton* startButton = new ElaToggleButton("捕获", this);
-    connect(startButton, &ElaToggleButton::toggled, this, [=](bool isToggled) {
-        if (isToggled)
-        {
-            dxgiManager->startGrabScreen();
-        }
-        else
-        {
-            dxgiManager->stopGrabScreen();
-            _dxgiScreen->setCardImage({});
+  connect(_dxComboBox, QOverload<int>::of(&ElaComboBox::currentIndexChanged),
+          this, [=](int index) {
+            dxgiManager->setDxDeviceID(index);
+            _outputComboBox->blockSignals(true);
+            _outputComboBox->clear();
+            _outputComboBox->addItems(dxgiManager->getOutputDeviceList());
+            _outputComboBox->setCurrentIndex(dxgiManager->getOutputDeviceID());
+            _outputComboBox->blockSignals(false);
             _dxgiScreen->update();
-        }
-    });
+          });
+  connect(_outputComboBox,
+          QOverload<int>::of(&ElaComboBox::currentIndexChanged), this,
+          [=](int index) {
+            dxgiManager->setOutputDeviceID(index);
+            _dxgiScreen->update();
+          });
 
-    QHBoxLayout* comboBoxLayout = new QHBoxLayout();
-    comboBoxLayout->addWidget(dxText);
-    comboBoxLayout->addWidget(_dxComboBox);
-    comboBoxLayout->addSpacing(10);
-    comboBoxLayout->addWidget(outputText);
-    comboBoxLayout->addWidget(_outputComboBox);
-    comboBoxLayout->addWidget(startButton);
-    comboBoxLayout->addStretch();
+  ElaToggleButton *startButton = new ElaToggleButton("捕获", this);
+  connect(startButton, &ElaToggleButton::toggled, this, [=](bool isToggled) {
+    if (isToggled) {
+      dxgiManager->startGrabScreen();
+    } else {
+      dxgiManager->stopGrabScreen();
+      _dxgiScreen->setCardImage({});
+      _dxgiScreen->update();
+    }
+  });
 
-    QWidget* centralWidget = new QWidget(this);
-    centralWidget->setWindowTitle("ElaScreen");
-    QVBoxLayout* centerLayout = new QVBoxLayout(centralWidget);
-    centerLayout->setContentsMargins(0, 0, 0, 0);
-    centerLayout->addLayout(comboBoxLayout);
-    centerLayout->addWidget(dxgiScreenArea);
-    addCentralWidget(centralWidget, false, true);
+  QHBoxLayout *comboBoxLayout = new QHBoxLayout();
+  comboBoxLayout->addWidget(dxText);
+  comboBoxLayout->addWidget(_dxComboBox);
+  comboBoxLayout->addSpacing(10);
+  comboBoxLayout->addWidget(outputText);
+  comboBoxLayout->addWidget(_outputComboBox);
+  comboBoxLayout->addWidget(startButton);
+  comboBoxLayout->addStretch();
+
+  QWidget *centralWidget = new QWidget(this);
+  centralWidget->setWindowTitle("ElaScreen");
+  QVBoxLayout *centerLayout = new QVBoxLayout(centralWidget);
+  centerLayout->setContentsMargins(0, 0, 0, 0);
+  centerLayout->addLayout(comboBoxLayout);
+  centerLayout->addWidget(dxgiScreenArea);
+  addCentralWidget(centralWidget, false, true);
 }
 
-T_ElaScreen::~T_ElaScreen()
-{
-}
+T_ElaScreen::~T_ElaScreen() {}
 #endif

@@ -4,15 +4,15 @@
 #include "T_BasePage.h"
 
 class ElaListView;
-class T_ListView : public T_BasePage
-{
-    Q_OBJECT
+
+class T_ListView : public T_BasePage {
+  Q_OBJECT
 public:
-    Q_INVOKABLE explicit T_ListView(QWidget* parent = nullptr);
-    ~T_ListView();
+  Q_INVOKABLE explicit T_ListView(QWidget *parent = nullptr);
+  ~T_ListView();
 
 private:
-    ElaListView* _listView{nullptr};
+  ElaListView *_listView{nullptr};
 };
 
 #endif // T_LISTVIEW_H

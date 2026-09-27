@@ -38,6 +38,7 @@
 #include "ExamplePage/T_Navigation.h"
 #include "ExamplePage/T_Popup.h"
 #include "ExamplePage/T_UpdateWidget.h"
+
 MainWindow::MainWindow(QWidget *parent) : ElaWindow(parent) {
   initWindow();
 
