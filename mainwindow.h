@@ -4,19 +4,14 @@
 #include "ElaWindow.h"
 
 #include <QMainWindow>
-class T_Home;
-class T_Icon;
-class T_ElaScreen;
-class T_BaseComponents;
-class T_Navigation;
-class T_Popup;
-class T_Card;
-class T_ListView;
-class T_TableView;
-class T_TreeView;
-class T_About;
-class T_Setting;
+
 class ElaContentDialog;
+
+namespace GManager {
+
+class Home;
+class GameDetailPage;
+class SettingsPage;
 
 class MainWindow : public ElaWindow {
   Q_OBJECT
@@ -26,32 +21,23 @@ public:
   ~MainWindow() override;
 
   void initWindow();
-  void initEdgeLayout();
   void initContent();
 
 protected:
   virtual void mouseReleaseEvent(QMouseEvent *event) override;
 
 private:
+  void showGameDetail(const QString &id);
+  void showRandomGameDetail();
+
   ElaContentDialog *_closeDialog{nullptr};
-  ElaSuggestBox *_windowSuggestBox{nullptr};
-  T_Home *_homePage{nullptr};
-#ifdef Q_OS_WIN
-  T_ElaScreen *_elaScreenPage{nullptr};
-#endif
-  T_Icon *_iconPage{nullptr};
-  T_BaseComponents *_baseComponentsPage{nullptr};
-  T_Navigation *_navigationPage{nullptr};
-  T_Popup *_popupPage{nullptr};
-  T_Card *_cardPage{nullptr};
-  T_ListView *_listViewPage{nullptr};
-  T_TableView *_tableViewPage{nullptr};
-  T_TreeView *_treeViewPage{nullptr};
-  T_About *_aboutPage{nullptr};
-  T_Setting *_settingPage{nullptr};
-  QString _elaDxgiKey{""};
-  QString _viewKey{""};
-  QString _aboutKey{""};
+  Home *_homePage{nullptr};
+  GameDetailPage *_detailPage{nullptr};
+  SettingsPage *_settingsPage{nullptr};
+  QString _detailKey{""};
   QString _settingKey{""};
 };
+
+} // namespace GManager
+
 #endif // MAINWINDOW_H

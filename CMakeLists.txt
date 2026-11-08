@@ -23,8 +23,8 @@ set(CMAKE_INSTALL_PREFIX ${CMAKE_SOURCE_DIR}/Install/${QT_VERSION}
 
 list(APPEND CMAKE_PREFIX_PATH ${QT_SDK_DIR})
 
-find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Widgets)
-find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Widgets)
+find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Widgets Sql Network)
+find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Widgets Sql Network)
 
 if(${QT_VERSION} VERSION_GREATER 6.7.0 OR ${QT_VERSION} VERSION_LESS 5.12.0)
   message(FATAL_ERROR
@@ -71,16 +71,25 @@ add_subdirectory(third_party/ElaWidgetTools)
 
 # 编译主程序
 file(GLOB ORIGIN *.cpp *.h)
-file(GLOB MODELVIEW ModelView/*.h ModelView/*.cpp)
-file(GLOB EAXMPLEPAGE ExamplePage/*.h ExamplePage/*.cpp)
+file(GLOB PAGES pages/*.h pages/*.cpp)
+file(GLOB WIDGETS widgets/*.h widgets/*.cpp)
+file(GLOB UTILS utils/*.h utils/*.cpp)
+file(GLOB DATA data/*.h data/*.cpp)
+file(GLOB SCRAPERS data/scrapers/*.h data/scrapers/*.cpp)
 
-source_group(ModelView FILES ${MODELVIEW})
-source_group(ExamplePage FILES ${EAXMPLEPAGE})
+source_group(pages FILES ${PAGES})
+source_group(widgets FILES ${WIDGETS})
+source_group(utils FILES ${UTILS})
+source_group(data FILES ${DATA})
+source_group(scrapers FILES ${SCRAPERS})
 
 set(PROJECT_SOURCES
     ${ORIGIN}
-    ${MODELVIEW}
-    ${EAXMPLEPAGE}
+    ${PAGES}
+    ${WIDGETS}
+    ${UTILS}
+    ${DATA}
+    ${SCRAPERS}
 )
 
 if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)
@@ -88,14 +97,17 @@ if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)
     MANUAL_FINALIZATION
     ${PROJECT_SOURCES}
   )
-  #遍历所有资源文件
-  file(GLOB_RECURSE RES_PATHS *.png *.jpg *.svg *.ico *.ttf *.webp *.js)
+  # 遍历 assets 下的资源文件（避免把 build/third_party 的图片重复打包）
+  file(GLOB_RECURSE RES_PATHS
+    assets/*.png assets/*.jpg assets/*.svg assets/*.ico
+    assets/*.ttf assets/*.webp assets/*.js
+  )
   foreach(filepath ${RES_PATHS})
     string(REPLACE "${CMAKE_CURRENT_SOURCE_DIR}/" "" filename ${filepath})
     list(APPEND resource_files ${filename})
   endforeach()
 
-  qt_add_resources(${PROJECT_NAME} "ElaWidgetToolsExample"
+  qt_add_resources(${PROJECT_NAME} "GManager"
     RESOURCES PREFIX "/"
     FILES
     ${resource_files}
@@ -114,11 +126,16 @@ set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/${PROJECT_NAME})
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/${PROJECT_NAME})
 
 target_include_directories(${PROJECT_NAME} PUBLIC
-    ExamplePage
-    ModelView
+    pages
+    widgets
+    utils
+    data
+    data/scrapers
 )
 target_link_libraries(${PROJECT_NAME} PRIVATE
     Qt${QT_VERSION_MAJOR}::Widgets
+    Qt${QT_VERSION_MAJOR}::Sql
+    Qt${QT_VERSION_MAJOR}::Network
     Ela::WidgetTools
 )
 
