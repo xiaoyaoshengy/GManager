@@ -10,6 +10,7 @@
 #include <QRegularExpression>
 #include <QUrl>
 
+#include "global_defines.h"
 #include "logs.h"
 
 namespace GManager {
@@ -17,7 +18,7 @@ namespace GManager {
 namespace {
 
 const QString kApiUrl = QStringLiteral("https://api.vndb.org/kana/vn");
-const QString kUserAgent = QStringLiteral("GManager/0.1");
+const QString kUserAgent = userAgent();
 const QString kVndbBaseUrl = QStringLiteral("https://vndb.org");
 const int kSearchResults = 100;
 const int kMaxTags = 20;

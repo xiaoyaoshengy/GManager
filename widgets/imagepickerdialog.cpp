@@ -24,11 +24,13 @@
 #include "ElaPushButton.h"
 #include "ElaText.h"
 
+#include "global_defines.h"
+
 namespace GManager {
 
 namespace {
 
-const QString kUserAgent = QStringLiteral("GManager/0.1");
+const QString kUserAgent = userAgent();
 const int kThumbnailGap = 8;
 const int kThumbnailAspectWidth = 16;
 const int kThumbnailAspectHeight = 9;

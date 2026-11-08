@@ -1,6 +1,19 @@
 ﻿cmake_minimum_required(VERSION 3.12)
 cmake_policy(SET CMP0087 NEW)
-project(GManager VERSION 0.1 LANGUAGES CXX)
+
+# 版本号只在 utils/global_defines.h 的 kAppVersion 里定义一处，
+# 这里解析出来给 project() 与打包脚本使用
+file(STRINGS "${CMAKE_CURRENT_SOURCE_DIR}/utils/global_defines.h"
+  GM_VERSION_LINE REGEX "kAppVersion")
+string(REGEX MATCH "\"([0-9]+\\.[0-9]+\\.[0-9]+)\"" _gm_version "${GM_VERSION_LINE}")
+set(GM_VERSION "${CMAKE_MATCH_1}")
+if(NOT GM_VERSION)
+  message(FATAL_ERROR
+    "无法从 utils/global_defines.h 解析 kAppVersion（形如 \"1.0.0\"）")
+endif()
+message("GManager 版本（来自 utils/global_defines.h）: ${GM_VERSION}")
+
+project(GManager VERSION ${GM_VERSION} LANGUAGES CXX)
 
 set(CMAKE_AUTOUIC ON)
 set(CMAKE_AUTOMOC ON)

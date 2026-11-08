@@ -33,7 +33,7 @@ namespace GManager {
 
 namespace {
 
-const QString kUserAgent = QStringLiteral("GManager/0.1");
+const QString kUserAgent = userAgent();
 const int kMessageDuration = 2000;
 
 void showWarning(const QString &message) {

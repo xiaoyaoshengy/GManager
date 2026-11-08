@@ -19,13 +19,14 @@
 
 #include "appsettings.h"
 #include "detailfield.h"
+#include "global_defines.h"
 #include "logs.h"
 
 namespace GManager {
 
 namespace {
 
-const QString kUserAgent = QStringLiteral("GManager/0.1");
+const QString kUserAgent = userAgent();
 const QString kTokenPageUrl =
     QStringLiteral("https://next.bgm.tv/demo/access-token");
 const QString kMeUrl = QStringLiteral("https://api.bgm.tv/v0/me");

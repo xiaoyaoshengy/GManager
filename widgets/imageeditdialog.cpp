@@ -27,6 +27,7 @@
 #include "ElaText.h"
 #include "ElaToolButton.h"
 
+#include "global_defines.h"
 #include "scraper.h"
 #include "scrapesearchdialog.h"
 
@@ -34,7 +35,7 @@ namespace GManager {
 
 namespace {
 
-const QString kUserAgent = QStringLiteral("GManager/0.1");
+const QString kUserAgent = userAgent();
 const int kMessageDuration = 2000;
 // 缩略图块高度，实际按候选条视口高度复算，保证竖向铺满
 const int kCandidateItemHeight = 88;

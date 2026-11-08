@@ -11,6 +11,7 @@
 #include <QUrl>
 
 #include "appsettings.h"
+#include "global_defines.h"
 #include "logs.h"
 
 namespace GManager {
@@ -18,7 +19,7 @@ namespace GManager {
 namespace {
 
 const QString kBaseUrl = QStringLiteral("https://api.bgm.tv");
-const QString kUserAgent = QStringLiteral("GManager/0.1");
+const QString kUserAgent = userAgent();
 // /v0/search/subjects 的服务端上限是 20，超过会被静默截断
 const int kSearchResults = 20;
 // 条目类型：4 为游戏

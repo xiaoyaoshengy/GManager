@@ -36,15 +36,29 @@ jobs:
           $dll = Get-ChildItem -Recurse build -Filter ElaWidgetTools.dll |
             Select-Object -First 1
           if ($dll) { Copy-Item $dll.FullName dist/ }
-          & "$env:QT_ROOT_DIR\bin\windeployqt.exe" --release --no-translations `
-            --no-system-d3d-compiler --no-opengl-sw dist/GManager.exe
+          & "$env:QT_ROOT_DIR\bin\windeployqt.exe" --release --compiler-runtime `
+            --no-translations --no-system-d3d-compiler --no-opengl-sw `
+            dist/GManager.exe
+          # 兜底：若仍未带上 MSVC 运行库，从 VS 的 Redist 目录补拷
+          if (-not (Test-Path dist/msvcp140.dll)) {
+            $crt = Get-ChildItem `
+              "C:\Program Files\Microsoft Visual Studio\2022\*\VC\Redist\MSVC\*\x64\Microsoft.VC*.CRT" `
+              -Directory -ErrorAction SilentlyContinue | Select-Object -First 1
+            if ($crt) {
+              Copy-Item "$($crt.FullName)\*.dll" dist/
+              Write-Host "已从 $($crt.FullName) 补拷 MSVC 运行库"
+            } else {
+              Write-Warning "未找到 MSVC CRT 目录，分发时需自行安装 VC++ 运行库"
+            }
+          }
           Copy-Item LICENSE, LICENSE.GPL-3, README.md dist/
           Copy-Item third_party/ElaWidgetTools/LICENSE dist/ElaWidgetTools-MIT.txt
+          Get-ChildItem dist | Select-Object Name, Length | Format-Table
 
-      - name: 打包 zip
-        run: Compress-Archive -Path dist/* -DestinationPath GManager-windows-x64.zip
-
+      # 直接上传 dist 目录：artifact 自带压缩，不再自己压一层，
+      # 否则下载后是「zip 套 zip」，需要解两次
       - uses: actions/upload-artifact@v4
         with:
           name: GManager-windows-x64
-          path: GManager-windows-x64.zip
+          path: dist/
+          if-no-files-found: error

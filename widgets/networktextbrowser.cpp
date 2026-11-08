@@ -31,7 +31,7 @@ namespace GManager {
 
 namespace {
 
-const QString kUserAgent = QStringLiteral("GManager/0.1");
+const QString kUserAgent = userAgent();
 
 // 介绍正文的默认排版：字号与段落间距，避免原样输出显得拥挤
 const QString kHtmlStyleSheet = QStringLiteral(

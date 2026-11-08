@@ -71,6 +71,9 @@ vcpkg_installed/
 Testing/
 .cache/
 
+# 本地构建/打包脚本，不入库
+scripts/
+
 # AI files
 AGENTS.md
 .crush

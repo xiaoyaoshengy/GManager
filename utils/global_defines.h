@@ -7,6 +7,18 @@
 
 namespace GManager {
 
+// 程序版本号：发布新版本只改这一处。
+// CMake 会从这个字面量解析版本号（project VERSION 与打包脚本都用它），
+// 网络请求的 User-Agent 也由它拼出，不要在别处再写死版本号
+constexpr const char *kAppVersion = "1.0.0";
+
+inline QString appVersion() { return QString::fromLatin1(kAppVersion); }
+
+// 统一的 User-Agent，形如 GManager/1.0.0
+inline QString userAgent() {
+  return QStringLiteral("GManager/%1").arg(appVersion());
+}
+
 // 应用数据根目录：Windows 使用可执行文件目录，Linux 遵循 XDG 规范
 inline QString appDataDir() {
 #ifdef Q_OS_WIN
