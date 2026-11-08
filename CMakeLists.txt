@@ -102,6 +102,8 @@ if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)
     assets/*.png assets/*.jpg assets/*.svg assets/*.ico
     assets/*.ttf assets/*.webp assets/*.js
   )
+  # assets/readme 是文档截图，只给 README 用，不打进程序资源
+  list(FILTER RES_PATHS EXCLUDE REGEX "/assets/readme/")
   foreach(filepath ${RES_PATHS})
     string(REPLACE "${CMAKE_CURRENT_SOURCE_DIR}/" "" filename ${filepath})
     list(APPEND resource_files ${filename})
@@ -167,6 +169,14 @@ install(TARGETS ${PROJECT_NAME}
 install(TARGETS ElaWidgetTools
   LIBRARY DESTINATION ${CMAKE_INSTALL_PREFIX}/${PROJECT_NAME}
   RUNTIME DESTINATION ${CMAKE_INSTALL_PREFIX}/${PROJECT_NAME}
+)
+
+# 分发时必须一并提供许可证与第三方声明
+install(FILES
+  LICENSE
+  LICENSE.GPL-3
+  third_party/ElaWidgetTools/LICENSE
+  DESTINATION ${CMAKE_INSTALL_PREFIX}/${PROJECT_NAME}/licenses
 )
 find_program(WINDEPLOYQT_EXECUTABLE windeployqt HINTS "${QT_SDK_DIR}/bin")
 if(WIN32)
