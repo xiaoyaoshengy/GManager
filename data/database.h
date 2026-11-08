@@ -26,6 +26,20 @@ struct GameInfo {
   QString playStatus;  // 游玩状态
 };
 
+// 卡片列表查询条件，空字符串表示该项不过滤
+struct GameFilter {
+  QString keyword;    // 匹配 title/developer/tags
+  QString playStatus; // 精确匹配游玩状态
+};
+
+// 卡片列表所需的最小字段集，不含 description 等大字段
+struct GameSummary {
+  QString id;
+  QString title;
+  QString cover;
+  QString playStatus;
+};
+
 class DatabaseManager : public QObject {
   Q_OBJECT
 
@@ -36,8 +50,12 @@ public:
   bool isReady() const;
   QString lastError() const;
 
-  // 按插入顺序查询全部游戏
-  QList<GameInfo> queryAll() const;
+  // 按插入顺序分页查询卡片摘要；hasMore 表示后面还有数据。
+  // 首页靠它避免一次把全部游戏读进内存
+  QList<GameSummary> querySummaries(const GameFilter &filter, int offset,
+                                    int limit, bool *hasMore = nullptr) const;
+  // 随机取一条游戏主键，库为空时返回 false
+  bool queryRandomId(QString *id) const;
   bool queryById(const QString &id, GameInfo *game) const;
 
   // id 为空时自动生成 UUID 并回填

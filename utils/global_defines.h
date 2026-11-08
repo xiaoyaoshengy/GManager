@@ -10,7 +10,7 @@ namespace GManager {
 // 程序版本号：发布新版本只改这一处。
 // CMake 会从这个字面量解析版本号（project VERSION 与打包脚本都用它），
 // 网络请求的 User-Agent 也由它拼出，不要在别处再写死版本号
-constexpr const char *kAppVersion = "1.0.0";
+constexpr const char *kAppVersion = "1.0.1";
 
 inline QString appVersion() { return QString::fromLatin1(kAppVersion); }
 

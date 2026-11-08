@@ -97,6 +97,40 @@ bool removeGameFile(const QString &dir, const QString &fileName) {
   return true;
 }
 
+// LIKE 里 % 与 _ 是通配符，关键词必须转义后才能当字面量匹配
+QString escapeLikePattern(const QString &text) {
+  QString escaped = text;
+  escaped.replace('\\', "\\\\");
+  escaped.replace('%', "\\%");
+  escaped.replace('_', "\\_");
+  return escaped;
+}
+
+// 拼出分页查询的 WHERE 子句并把绑定值追加到 binds；无条件时返回空串
+QString buildFilterClause(const GameFilter &filter, QVariantList *binds) {
+  QStringList conditions;
+  if (!filter.playStatus.isEmpty()) {
+    conditions.append(QStringLiteral("play_status = ?"));
+    binds->append(filter.playStatus);
+  }
+
+  const QString keyword = filter.keyword.trimmed();
+  if (!keyword.isEmpty()) {
+    const QString pattern = "%" + escapeLikePattern(keyword) + "%";
+    conditions.append(QStringLiteral("(title LIKE ? ESCAPE '\\' OR developer "
+                                     "LIKE ? ESCAPE '\\' OR tags LIKE ? ESCAPE "
+                                     "'\\')"));
+    binds->append(pattern);
+    binds->append(pattern);
+    binds->append(pattern);
+  }
+
+  if (conditions.isEmpty()) {
+    return QString();
+  }
+  return QStringLiteral(" WHERE ") + conditions.join(QStringLiteral(" AND "));
+}
+
 } // namespace
 
 SINGLETON_SOURCE(DatabaseManager)
@@ -115,22 +149,70 @@ bool DatabaseManager::isReady() const { return _ready; }
 
 QString DatabaseManager::lastError() const { return _lastError; }
 
-QList<GameInfo> DatabaseManager::queryAll() const {
-  QList<GameInfo> games;
-  if (!_ready) {
-    return games;
+QList<GameSummary> DatabaseManager::querySummaries(const GameFilter &filter,
+                                                   int offset, int limit,
+                                                   bool *hasMore) const {
+  QList<GameSummary> summaries;
+  if (hasMore) {
+    *hasMore = false;
+  }
+  if (!_ready || limit <= 0) {
+    return summaries;
   }
 
+  QVariantList binds;
+  const QString where = buildFilterClause(filter, &binds);
+
   QSqlQuery query(_db);
-  if (!query.exec(kGameSelect + " ORDER BY rowid")) {
-    setError("查询全部游戏失败", query.lastError());
-    return games;
+  // 多取一条用于判断后面还有没有数据，省掉一次 COUNT 查询
+  query.prepare(
+      QStringLiteral("SELECT id, title, cover, play_status FROM games") +
+      where + QStringLiteral(" ORDER BY rowid LIMIT ? OFFSET ?"));
+  for (const QVariant &bind : binds) {
+    query.addBindValue(bind);
+  }
+  query.addBindValue(limit + 1);
+  query.addBindValue(qMax(0, offset));
+  if (!query.exec()) {
+    setError("查询游戏列表失败", query.lastError());
+    return summaries;
   }
 
   while (query.next()) {
-    games.append(gameFromQuery(query));
+    if (summaries.size() >= limit) {
+      if (hasMore) {
+        *hasMore = true;
+      }
+      break;
+    }
+    GameSummary summary;
+    summary.id = query.value(0).toString();
+    summary.title = query.value(1).toString();
+    summary.cover = query.value(2).toString();
+    summary.playStatus = query.value(3).toString();
+    if (summary.playStatus.isEmpty()) {
+      summary.playStatus = defaultPlayStatus();
+    }
+    summaries.append(summary);
   }
-  return games;
+  return summaries;
+}
+
+bool DatabaseManager::queryRandomId(QString *id) const {
+  if (!_ready || !id) {
+    return false;
+  }
+
+  QSqlQuery query(_db);
+  if (!query.exec("SELECT id FROM games ORDER BY RANDOM() LIMIT 1")) {
+    setError("查询随机游戏失败", query.lastError());
+    return false;
+  }
+  if (!query.next()) {
+    return false;
+  }
+  *id = query.value(0).toString();
+  return true;
 }
 
 bool DatabaseManager::queryById(const QString &id, GameInfo *game) const {

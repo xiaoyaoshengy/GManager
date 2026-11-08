@@ -1,6 +1,7 @@
 ﻿#include <QApplication>
 #include <QLocalServer>
 #include <QLocalSocket>
+#include <QPixmapCache>
 #include <QScreen>
 
 #include "ElaApplication.h"
@@ -58,6 +59,10 @@ int main(int argc, char *argv[]) {
 
   QApplication a(argc, argv);
   a.setApplicationName("GManager");
+
+  // 首页卡片封面缩略图共享缓存，超限后按最近最少使用淘汰。
+  // 卡片本身按视口回收，同时存活的封面只有几十张，24MB 足够覆盖滚动缓冲
+  QPixmapCache::setCacheLimit(24 * 1024);
 
   // 单例：已有程序在运行时聚焦它并退出，避免出现第二个窗口
   if (notifyRunningInstance()) {

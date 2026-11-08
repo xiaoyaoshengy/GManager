@@ -4,7 +4,6 @@
 #include <QGraphicsView>
 #include <QHBoxLayout>
 #include <QMouseEvent>
-#include <QRandomGenerator>
 
 #include "ElaContentDialog.h"
 #include "ElaMessageBar.h"
@@ -123,16 +122,22 @@ void MainWindow::showGameDetail(const QString &id) {
 }
 
 void MainWindow::showRandomGameDetail() {
-  const QList<GameInfo> games = DatabaseManager::getInstance()->queryAll();
-  if (games.isEmpty()) {
+  // 只取一条随机主键，避免为了随机展示把整个游戏库读进内存
+  QString id;
+  if (!DatabaseManager::getInstance()->queryRandomId(&id)) {
     ElaMessageBar::warning(ElaMessageBarType::TopRight, "警告",
                            "游戏库为空，请先添加游戏", 2000);
     return;
   }
 
-  const int index =
-      QRandomGenerator::global()->bounded(static_cast<int>(games.size()));
-  _detailPage->setGame(games.at(index));
+  GameInfo game;
+  if (!DatabaseManager::getInstance()->queryById(id, &game)) {
+    ElaMessageBar::warning(ElaMessageBarType::TopRight, "警告",
+                           "未找到游戏信息", 2000);
+    return;
+  }
+
+  _detailPage->setGame(game);
   _detailPage->scrollToTop();
 }
 

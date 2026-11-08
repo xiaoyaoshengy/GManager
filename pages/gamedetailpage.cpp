@@ -1,7 +1,5 @@
 #include "gamedetailpage.h"
 
-#include <functional>
-
 #include <QCursor>
 #include <QDir>
 #include <QEasingCurve>
@@ -32,6 +30,7 @@
 
 #include "detailfield.h"
 #include "editgamedialog.h"
+#include "floatingtopbutton.h"
 #include "global_defines.h"
 #include "imageeditdialog.h"
 #include "imageviewerdialog.h"
@@ -173,47 +172,6 @@ private:
   ElaThemeType::ThemeMode _themeMode;
 };
 
-// 悬浮“回到顶部”按钮：半透明圆底 + 上箭头，点击后回调
-class FloatingTopButton : public QWidget {
-public:
-  explicit FloatingTopButton(const std::function<void()> &onClick,
-                             QWidget *parent = nullptr)
-      : QWidget(parent), _themeMode(eTheme->getThemeMode()) {
-    setFixedSize(40, 40);
-    setCursor(Qt::PointingHandCursor);
-    setAttribute(Qt::WA_TranslucentBackground);
-    ElaIconButton *button =
-        new ElaIconButton(ElaIconType::ArrowUp, 16, 40, 40, this);
-    button->setBorderRadius(20);
-    button->setToolTip("回到顶部");
-    button->setCursor(Qt::PointingHandCursor);
-    connect(button, &QPushButton::clicked, this, [onClick]() { onClick(); });
-    connect(eTheme, &ElaTheme::themeModeChanged, this,
-            [this](ElaThemeType::ThemeMode themeMode) {
-              _themeMode = themeMode;
-              update();
-            });
-  }
-
-protected:
-  void paintEvent(QPaintEvent *event) override {
-    Q_UNUSED(event);
-    QPainter painter(this);
-    painter.setRenderHint(QPainter::Antialiasing);
-    QColor color = ElaThemeColor(_themeMode, BasicBase);
-    color.setAlphaF(0.72);
-    QColor border = ElaThemeColor(_themeMode, BasicBorder);
-    border.setAlphaF(0.65);
-    painter.setPen(QPen(border, 1));
-    painter.setBrush(color);
-    painter.drawRoundedRect(QRectF(rect()).adjusted(0.5, 0.5, -0.5, -0.5), 20,
-                            20);
-  }
-
-private:
-  ElaThemeType::ThemeMode _themeMode;
-};
-
 GameDetailPage::GameDetailPage(QWidget *parent) : ElaScrollPage(parent) {
   setTitleVisible(false);
   setContentsMargins(0, 0, 0, 0);
@@ -309,8 +267,10 @@ GameDetailPage::GameDetailPage(QWidget *parent) : ElaScrollPage(parent) {
   addCentralWidget(central);
 
   _scrollArea = findChild<QScrollArea *>();
-  _topButton = new FloatingTopButton([this]() { scrollToTopSmooth(); }, this);
+  _topButton = new FloatingTopButton(this);
   _topButton->hide();
+  connect(_topButton, &FloatingTopButton::clicked, this,
+          [this]() { scrollToTopSmooth(); });
   if (_scrollArea) {
     connect(_scrollArea->verticalScrollBar(), &QScrollBar::valueChanged, this,
             [this](int) { updateTopButton(); });
@@ -396,13 +356,7 @@ void GameDetailPage::scrollToTopSmooth() {
     scrollToTop();
     return;
   }
-  QScrollBar *bar = _scrollArea->verticalScrollBar();
-  auto *animation = new QPropertyAnimation(bar, "value", this);
-  animation->setDuration(250);
-  animation->setStartValue(bar->value());
-  animation->setEndValue(bar->minimum());
-  animation->setEasingCurve(QEasingCurve::OutCubic);
-  animation->start(QAbstractAnimation::DeleteWhenStopped);
+  animateScrollToTop(_scrollArea->verticalScrollBar(), this);
 }
 
 void GameDetailPage::resizeEvent(QResizeEvent *event) {

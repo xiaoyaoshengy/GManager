@@ -16,6 +16,7 @@ class QScrollArea;
 namespace GManager {
 
 class BannerBackground;
+class FloatingTopButton;
 class InfoField;
 class NetworkTextBrowser;
 class PlayStatusBadge;
@@ -74,7 +75,7 @@ private:
   ElaText *_linksText{nullptr};
   PlayStatusBadge *_playStatusBadge{nullptr};
   NetworkTextBrowser *_descriptionBrowser{nullptr};
-  QWidget *_topButton{nullptr};
+  FloatingTopButton *_topButton{nullptr};
   QScrollArea *_scrollArea{nullptr};
   QGridLayout *_columnsGrid{nullptr};
   QWidget *_leftPanel{nullptr};
