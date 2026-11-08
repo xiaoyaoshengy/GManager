@@ -43,6 +43,10 @@ build/
 Build/
 build-*/
 
+# 打包产物（makepkg/deb 生成，可由 dist 脚本复现）
+dist/
+Install/
+
 # CMake generated files
 CMakeFiles/
 CMakeCache.txt

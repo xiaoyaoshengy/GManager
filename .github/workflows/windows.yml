@@ -1,0 +1,50 @@
+name: windows
+
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 安装 Qt 6.6.2（MSVC 2019 64bit）
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: '6.6.2'
+          arch: win64_msvc2019_64
+          cache: true
+
+      - name: 配置 CMake
+        run: >
+          cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+          -DQT_SDK_DIR="$env:QT_ROOT_DIR"
+
+      - name: 构建
+        run: cmake --build build --config Release --parallel
+
+      - name: 部署 Qt 运行库与许可
+        run: |
+          New-Item -ItemType Directory -Force dist | Out-Null
+          $exe = Get-ChildItem -Recurse build -Filter GManager.exe |
+            Select-Object -First 1
+          if (-not $exe) { throw "未找到 GManager.exe" }
+          Copy-Item $exe.FullName dist/
+          $dll = Get-ChildItem -Recurse build -Filter ElaWidgetTools.dll |
+            Select-Object -First 1
+          if ($dll) { Copy-Item $dll.FullName dist/ }
+          & "$env:QT_ROOT_DIR\bin\windeployqt.exe" --release --no-translations `
+            --no-system-d3d-compiler --no-opengl-sw dist/GManager.exe
+          Copy-Item LICENSE, LICENSE.GPL-3, README.md dist/
+          Copy-Item third_party/ElaWidgetTools/LICENSE dist/ElaWidgetTools-MIT.txt
+
+      - name: 打包 zip
+        run: Compress-Archive -Path dist/* -DestinationPath GManager-windows-x64.zip
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: GManager-windows-x64
+          path: GManager-windows-x64.zip

@@ -10,10 +10,13 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 add_compile_options("$<$<CXX_COMPILER_ID:MSVC>:/utf-8>")
 
-# 在这里配置QT路径，例如：D:/Qt/6.6.2/msvc2019_64、
-# D:/Qt/5.15.2/msvc2019_64、/home/liniyous/Qt/5.15.2/gcc_64
-set(QT_SDK_DIR /data/xiaoyaosheny/Programs/qt/6.6.2/gcc_64
-  CACHE PATH "QT SDK DIR" FORCE)
+# 在这里配置 QT 路径，例如：D:/Qt/6.6.2/msvc2019_64、
+# /home/<user>/Qt/6.6.2/gcc_64；也可以用 -DQT_SDK_DIR=... 覆盖，
+# 便于在 Windows / CI 上使用不同安装位置的 Qt
+if(NOT DEFINED QT_SDK_DIR)
+  set(QT_SDK_DIR /data/xiaoyaosheny/Programs/qt/6.6.2/gcc_64
+    CACHE PATH "QT SDK DIR")
+endif()
 message(
   "在CMAKE中配置 QT_SDK_DIR 选项指定QT路径；"
   "当前路径: ${QT_SDK_DIR}"
