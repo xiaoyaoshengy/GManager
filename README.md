@@ -1,8 +1,6 @@
 # GManager
 
-基于 Qt Widgets 的本地游戏库管理器：把游戏收进自己的库，采用卡片流浏览，
-支持从公开刮削源补全信息与封面/横幅，界面使用 ElaWidgetTools 的
-FluentUI 风格组件。
+基于 Qt Widgets 的本地游戏库管理器：把游戏收进自己的库，采用卡片流浏览，支持从公开刮削源补全信息与封面/横幅，界面使用 ElaWidgetTools 的 FluentUI 风格组件。
 
 ## 截图
 
@@ -13,22 +11,15 @@ FluentUI 风格组件。
 
 ![详情页介绍](assets/readme/detail_1.png)
 
-详情页左列是富文本介绍（支持从刮削源带回来的 HTML、图片自动加载并
-自适应宽度），右列是评分、开发者、类别、标签与相关链接。
+详情页左列是富文本介绍（支持从刮削源带回来的 HTML、图片自动加载并自适应宽度），右列是评分、开发者、类别、标签与相关链接。
 
 ## 功能
 
-- **游戏库**：卡片流展示本地库，支持按游玩状态筛选、按标题搜索；
-  点击卡片进入详情页，卡片右键可跳转修改、设置游玩状态或从库中删除。
-- **添加游戏**：从刮削源搜索条目，选定后挑选背景图，封面与横幅自动
-  下载入库；也可以选“自定义”只填标题。
-- **修改游戏信息**：手动编辑名称、评分、开发者、标签、类别、相关链接与
-  详细介绍；也可“刮削”一次，把刮削结果显示成逐字段对比，每个字段都能
-  选择沿用原始值、采用刮削值，标签与相关链接还能取两者并集。
-- **修改图片**：封面与横幅可从链接、本地文件，或刮削源的候选图片里挑，
-  预览确认后才写回库。
-- **设置**：保存刮削服务所需的访问令牌（部分源未配置时只能刮削
-  全年龄条目）。
+- **游戏库**：卡片流展示本地库，支持按游玩状态筛选、按标题搜索；点击卡片进入详情页，卡片右键可跳转修改、设置游玩状态或从库中删除。
+- **添加游戏**：从刮削源搜索条目，选定后挑选背景图，封面与横幅自动下载入库；也可以选“自定义”只填标题。
+- **修改游戏信息**：手动编辑名称、评分、开发者、标签、类别、相关链接与详细介绍；也可“刮削”一次，把刮削结果显示成逐字段对比，每个字段都能选择沿用原始值、采用刮削值，标签与相关链接还能取两者并集。
+- **修改图片**：封面与横幅可从链接、本地文件，或刮削源的候选图片里挑，预览确认后才写回库。
+- **设置**：保存刮削服务所需的访问令牌（部分源未配置时只能刮削全年龄条目）。
 - **运行细节**：单实例运行、操作日志落盘、网络图片磁盘缓存与自动清理。
 
 ## 环境要求
@@ -39,8 +30,7 @@ FluentUI 风格组件。
 | Qt 模块 | Widgets、Sql（SQLite 驱动）、Network |
 | 构建工具 | CMake ≥ 3.12，支持 C++17 的编译器 |
 
-`CMakeLists.txt` 里的 `QT_SDK_DIR` 被 `FORCE` 写死，构建前请改成自己的
-Qt 安装路径；用 `-D` 传参不生效。
+`CMakeLists.txt` 里的 `QT_SDK_DIR` 默认指向作者机器上的 Qt 路径，构建前改成自己的路径，或直接用 `-DQT_SDK_DIR=/path/to/qt` 覆盖。
 
 ## 构建与运行
 
@@ -58,8 +48,7 @@ cmake --build build -j"$(nproc)"
 cmake --install build
 ```
 
-第三方库 `third_party/ElaWidgetTools` 以源码形式随仓库一起构建，无需
-单独安装。格式化只作用于自研代码，不要格式化 `third_party/`：
+第三方库 `third_party/ElaWidgetTools` 以源码形式随仓库一起构建，无需单独安装。格式化只作用于自研代码，不要格式化 `third_party/`：
 
 ```bash
 clang-format -i main.cpp mainwindow.cpp pages/*.cpp pages/*.h \
@@ -68,8 +57,7 @@ clang-format -i main.cpp mainwindow.cpp pages/*.cpp pages/*.h \
 
 ## 数据与配置
 
-数据根目录：Windows 为可执行文件所在目录，Linux 遵循 XDG 规范
-（`$XDG_DATA_HOME/GManager`，默认 `~/.local/share/GManager`）。
+数据根目录：Windows 为可执行文件所在目录，Linux 遵循 XDG 规范（`$XDG_DATA_HOME/GManager`，默认 `~/.local/share/GManager`）。
 
 | 内容 | Linux | Windows |
 | --- | --- | --- |
@@ -97,31 +85,19 @@ clang-format -i main.cpp mainwindow.cpp pages/*.cpp pages/*.h \
 
 ## 致谢
 
-- [ElaWidgetTools](https://github.com/Liniyous/ElaWidgetTools)：面向
-  Qt5/Qt6 的 FluentUI 风格 Qt Widgets 组件库。本项目的无边框窗口、
-  导航、对话框、列表与消息提示等界面基础都来自它，源码以
-  `third_party/ElaWidgetTools` 的形式随仓库一起构建。
+- [ElaWidgetTools](https://github.com/Liniyous/ElaWidgetTools)：面向 Qt5/Qt6 的 FluentUI 风格 Qt Widgets 组件库。本项目的无边框窗口、导航、对话框、列表与消息提示等界面基础都来自它，源码以 `third_party/ElaWidgetTools` 的形式随仓库一起构建。
 - Qt：GUI 框架、SQLite 驱动与网络模块（本项目通过 Qt 官方安装器获取）。
-- 程序图标 `assets/images/gamepad.png`：来自
-  [Game-icons.net 的 Gamepad 图标](https://game-icons.net/1x1/delapouite/gamepad.html#download)，
-  作者 [Delapouite](https://delapouite.com)，按
-  [CC BY 3.0](http://creativecommons.org/licenses/by/3.0/) 使用，
-  未作修改。
-- [Bangumi](https://bgm.tv) 与 [VNDB](https://vndb.org)：感谢这两个
-  社区站点提供公开的条目资料与查询接口，本程序的刮削功能得益于
-  它们的数据；条目信息与封面版权归各站点及原作者所有。
+- 程序图标 `assets/images/gamepad.png`：来自 [Game-icons.net 的 Gamepad 图标](https://game-icons.net/1x1/delapouite/gamepad.html#download)，作者 [Delapouite](https://delapouite.com)，按 [CC BY 3.0](http://creativecommons.org/licenses/by/3.0/) 使用，未作修改。
+- [Bangumi](https://bgm.tv) 与 [VNDB](https://vndb.org)：感谢这两个社区站点提供公开的条目资料与查询接口，本程序的刮削功能得益于它们的数据；条目信息与封面版权归各站点及原作者所有。
 
 ## 许可证
 
-本项目按 **GNU Lesser General Public License v3.0**（LGPL-3.0-only）发布，
-版权归 GManager 作者所有：
+本项目按 **GNU Lesser General Public License v3.0**（LGPL-3.0-only）发布，版权归 GManager 作者所有：
 
 - 许可证全文：[`LICENSE`](LICENSE)；
 - LGPLv3 引用的 GPLv3 全文：[`LICENSE.GPL-3`](LICENSE.GPL-3)。
 
-在遵守 LGPLv3 的前提下，你可以把本程序用于任何用途（含商业用途）、
-修改它，或把它与其他程序一起分发；分发修改后的版本时，需要一并提供
-对应源码，并保留接收者替换 Qt 与本项目库文件的权利。
+在遵守 LGPLv3 的前提下，你可以把本程序用于任何用途（含商业用途）、修改它，或把它与其他程序一起分发；分发修改后的版本时，需要一并提供对应源码，并保留接收者替换 Qt 与本项目库文件的权利。
 
 第三方组件遵循各自的许可证，不受上述许可影响：
 
@@ -134,7 +110,5 @@ clang-format -i main.cpp mainwindow.cpp pages/*.cpp pages/*.h \
 ## 说明
 
 - 截图中的游戏封面、介绍与标签来自刮削结果，仅用于演示界面效果。
-- 素材与代码的许可分别适用：程序图标按 CC BY 3.0 使用，重新分发时请
-  保留上面的署名；程序代码按 LGPLv3 使用，见“许可证”。
-- 若某份分发物不含本 README，请把图标署名一并写进安装包的说明或
-  “关于”对话框中，以满足 CC BY 的署名要求。
+- 素材与代码的许可分别适用：程序图标按 CC BY 3.0 使用，重新分发时请保留上面的署名；程序代码按 LGPLv3 使用，见“许可证”。
+- 若某份分发物不含本 README，请把图标署名一并写进安装包的说明或“关于”对话框中，以满足 CC BY 的署名要求。
