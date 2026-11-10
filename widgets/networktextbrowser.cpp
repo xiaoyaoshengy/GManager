@@ -13,6 +13,7 @@
 #include <QNetworkRequest>
 #include <QPalette>
 #include <QResizeEvent>
+#include <QSizeF>
 #include <QTextBlock>
 #include <QTextBlockFormat>
 #include <QTextCursor>
@@ -52,6 +53,16 @@ void logWarning(const QString &message) {
                                          "NetworkTextBrowser", message);
 }
 
+// 协议相对地址（//host/a.png）补全成可下载的 url，同时让资源表的键与 HTML
+// 里的写法无关
+QUrl normalizeImageUrl(const QUrl &url) {
+  if (url.scheme().isEmpty() &&
+      url.toString().startsWith(QLatin1String("//"))) {
+    return QUrl(QStringLiteral("https:") + url.toString());
+  }
+  return url;
+}
+
 } // namespace
 
 NetworkTextBrowser::NetworkTextBrowser(QWidget *parent) : QTextBrowser(parent) {
@@ -87,6 +98,7 @@ void NetworkTextBrowser::setHtmlContent(const QString &html) {
   _html =
       html.trimmed().isEmpty() ? QStringLiteral("<p>暂无详细介绍</p>") : html;
   _images.clear();
+  _displayImages.clear();
   _pending.clear();
   _failed.clear();
   ++_generation;
@@ -169,10 +181,11 @@ void NetworkTextBrowser::applyTypography() {
   cursor.endEditBlock();
 }
 
-// 图片按可用宽度等比缩放，独占一段时居中显示
+// 图片先按可用宽度做平滑缩放再交给文档，布局尺寸与缩放后的像素尺寸一致：
+// Qt 绘制行内图片时不做平滑采样，只要显示尺寸和图片尺寸对不上就会出现锯齿
 void NetworkTextBrowser::applyImageSizing() {
   QTextDocument *doc = document();
-  const int maxWidth = qMax(viewport()->width() - 2, 80);
+  const int maxWidth = availableImageWidth();
   if (_imageMaxWidth == maxWidth) {
     return;
   }
@@ -195,22 +208,25 @@ void NetworkTextBrowser::applyImageSizing() {
         continue;
       }
       const QTextImageFormat imageFormat = charFormat.toImageFormat();
-      const QImage image =
-          doc->resource(QTextDocument::ImageResource, QUrl(imageFormat.name()))
-              .value<QImage>();
-      if (image.isNull() || image.width() <= 0) {
+      const QUrl htmlUrl(imageFormat.name());
+      const QUrl url = normalizeImageUrl(htmlUrl);
+      if (!_images.contains(url)) {
         continue; // 图片还没加载完成，等载入后 reloadHtml 再处理
       }
+      const QImage display = displayImage(url);
+      if (display.isNull()) {
+        continue;
+      }
+      // 文档按 HTML 里的原始 url 缓存资源，替换成缩放后的图供绘制使用
+      doc->addResource(QTextDocument::ImageResource, htmlUrl, display);
 
+      const QSizeF logicalSize = display.deviceIndependentSize();
       ImageEdit edit;
       edit.position = fragment.position();
       edit.length = fragment.length();
       edit.format = imageFormat;
-      const int targetWidth = qMin(image.width(), maxWidth);
-      const int targetHeight =
-          qMax(1, qRound(qreal(image.height()) * targetWidth / image.width()));
-      edit.format.setWidth(targetWidth);
-      edit.format.setHeight(targetHeight);
+      edit.format.setWidth(qRound(logicalSize.width()));
+      edit.format.setHeight(qRound(logicalSize.height()));
       // 图片不是链接，清除锚点，禁止点击跳转（HTML 层可能仍包在 <a> 里）
       edit.format.setAnchor(false);
       edit.blockPosition = block.position();
@@ -251,6 +267,57 @@ void NetworkTextBrowser::applyImageSizing() {
     }
   }
   cursor.endEditBlock();
+  // 尺寸没变但图片被换成缩放后的副本时不会触发重排，这里补一次重绘
+  viewport()->update();
+}
+
+int NetworkTextBrowser::availableImageWidth() const {
+  return qMax(viewport()->width() - 2, 80);
+}
+
+// 返回绘制用的图片：按可用宽度平滑缩小到显示尺寸，并按控件的设备像素比
+// 生成对应物理像素，使绘制阶段退化为 1:1 拷贝
+QImage NetworkTextBrowser::displayImage(const QUrl &url) {
+  const QImage source = _images.value(url);
+  if (source.isNull()) {
+    return source;
+  }
+
+  const qreal dpr = devicePixelRatioF();
+  if (!qFuzzyCompare(_displayDpr, dpr)) {
+    _displayDpr = dpr;
+    _displayImages.clear();
+  }
+
+  const qreal sourceDpr = qMax<qreal>(source.devicePixelRatioF(), 1.0);
+  const int sourceWidth = qMax(1, qRound(source.width() / sourceDpr));
+  const int sourceHeight = qMax(1, qRound(source.height() / sourceDpr));
+  const int maxWidth = availableImageWidth();
+  const int logicalWidth = qMin(sourceWidth, maxWidth);
+
+  // 宽度变化不大时复用已有缩放结果，避免拖动窗口时反复重采样
+  const QImage cached = _displayImages.value(url);
+  if (!cached.isNull()) {
+    const int cachedWidth =
+        qRound(cached.width() / qMax<qreal>(cached.devicePixelRatioF(), 1.0));
+    if (cachedWidth <= maxWidth && qAbs(cachedWidth - logicalWidth) <= 8) {
+      return cached;
+    }
+  }
+
+  const int logicalHeight =
+      qMax(1, qRound(qreal(sourceHeight) * logicalWidth / qreal(sourceWidth)));
+  const int pixelWidth = qMax(1, qRound(logicalWidth * dpr));
+  const int pixelHeight = qMax(1, qRound(logicalHeight * dpr));
+
+  QImage display = source;
+  if (pixelWidth != source.width() || pixelHeight != source.height()) {
+    display = source.scaled(pixelWidth, pixelHeight, Qt::IgnoreAspectRatio,
+                            Qt::SmoothTransformation);
+  }
+  display.setDevicePixelRatio(dpr);
+  _displayImages.insert(url, display);
+  return display;
 }
 
 QVariant NetworkTextBrowser::loadResource(int type, const QUrl &name) {
@@ -258,17 +325,14 @@ QVariant NetworkTextBrowser::loadResource(int type, const QUrl &name) {
     return QTextBrowser::loadResource(type, name);
   }
 
-  QUrl url = name;
-  if (url.scheme().isEmpty() && name.toString().startsWith("//")) {
-    url = QUrl(QStringLiteral("https:") + name.toString());
-  }
+  QUrl url = normalizeImageUrl(name);
   const QString scheme = url.scheme().toLower();
   if (scheme != QStringLiteral("http") && scheme != QStringLiteral("https")) {
     return QTextBrowser::loadResource(type, name);
   }
 
   if (_images.contains(url)) {
-    return _images.value(url);
+    return displayImage(url);
   }
   if (_failed.contains(url)) {
     return QImage();
@@ -279,7 +343,7 @@ QVariant NetworkTextBrowser::loadResource(int type, const QUrl &name) {
   if (QFile::exists(cachePath) && image.load(cachePath)) {
     _images.insert(url, image);
     touchImageCache(cachePath);
-    return image;
+    return displayImage(url);
   }
 
   if (!_pending.contains(url)) {
@@ -335,6 +399,16 @@ void NetworkTextBrowser::resizeEvent(QResizeEvent *event) {
   QTextBrowser::resizeEvent(event);
   applyImageSizing();
   updateHeight();
+}
+
+// 跨屏拖动时控件设备像素比会变，缩放缓存与布局尺寸都要按新比例重来
+bool NetworkTextBrowser::event(QEvent *event) {
+  if (event->type() == QEvent::DevicePixelRatioChange) {
+    _displayImages.clear();
+    _imageMaxWidth = -1;
+    applyImageSizing();
+  }
+  return QTextBrowser::event(event);
 }
 
 // 自身不响应滚轮，把滚轮事件转发给外层滚动区（详情页），保持整页滚动一致
