@@ -42,20 +42,10 @@ list(APPEND CMAKE_PREFIX_PATH ${QT_SDK_DIR})
 find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Widgets Sql Network)
 find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Widgets Sql Network)
 
-if(${QT_VERSION} VERSION_GREATER 6.8.3 OR ${QT_VERSION} VERSION_LESS 5.12.0)
-  message(FATAL_ERROR
-    "当前仅在 Qt 6.8.3 上实测通过，请使用 Qt 6.8.3！"
-  )
-  message(FATAL_ERROR
-    "Only Qt 6.8.3 has been verified by testing; please use Qt 6.8.3."
-  )
-endif()
-
-if(
-  ${QT_VERSION} VERSION_GREATER_EQUAL 6.5.3
-  AND
-  ${QT_VERSION} VERSION_LESS_EQUAL 6.6.1
-)
+# 版本白名单：只接受 Qt 6.8.0 ~ 6.8.3。
+# 6.5.x / 6.6.x 等旧版本缺少 Qt_6.8 符号，一旦与安装包自带的 6.8.3
+# 运行库混用，启动时会因版本符号缺失而失败，因此在配置阶段就拦下。
+if(${QT_VERSION} VERSION_GREATER 6.8.3 OR ${QT_VERSION} VERSION_LESS 6.8.0)
   message(FATAL_ERROR
     "当前仅在 Qt 6.8.3 上实测通过，请使用 Qt 6.8.3！"
   )
@@ -65,11 +55,13 @@ if(
 endif()
 
 if(NOT WIN32)
-  add_link_options(-Wl,--disable-new-dtags)
   set(CMAKE_SKIP_INSTALL_RPATH FALSE)
-  set(CMAKE_INSTALL_RPATH
-    "${QT_SDK_DIR}/lib:${CMAKE_INSTALL_PREFIX}/ElaWidgetTools/lib"
-  )
+  # 安装树里可执行文件在 bin/、运行库在 ../lib/，用相对 $ORIGIN 的 RPATH，
+  # 不写死构建机的 Qt 绝对路径。
+  # 注意不要加 -Wl,--disable-new-dtags：旧式 DT_RPATH 的优先级高于
+  # LD_LIBRARY_PATH，会让启动器指向的库失效；只有链接器默认的 DT_RUNPATH
+  # 才能被 LD_LIBRARY_PATH 覆盖。
+  set(CMAKE_INSTALL_RPATH "\$ORIGIN/../lib")
 endif()
 
 # 编译 ElaWidgetTools 库
