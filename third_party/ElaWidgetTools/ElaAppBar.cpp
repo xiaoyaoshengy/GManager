@@ -9,6 +9,7 @@
 
 #ifndef Q_OS_WIN
 #include <QDateTime>
+#include <QShowEvent>
 #include <QWindow>
 #endif
 #include <QGuiApplication>
@@ -240,7 +241,8 @@ void ElaAppBar::setAppBarHeight(int height)
     Q_D(ElaAppBar);
     d->_pAppBarHeight = height;
     setFixedHeight(d->_pAppBarHeight);
-    window()->setContentsMargins(0, d->_pAppBarHeight + d->_pRibbonHeight, 0, 0);
+    // 已因服务端装饰隐藏AppBar时，不再为窗口顶部预留高度
+    window()->setContentsMargins(0, d->_isHiddenByDecoration ? 0 : d->_pAppBarHeight + d->_pRibbonHeight, 0, 0);
     Q_EMIT pAppBarHeightChanged();
 }
 
@@ -254,7 +256,8 @@ void ElaAppBar::setRibbonHeight(int height)
 {
     Q_D(ElaAppBar);
     d->_pRibbonHeight = height;
-    window()->setContentsMargins(0, d->_pAppBarHeight + d->_pRibbonHeight, 0, 0);
+    // 已因服务端装饰隐藏AppBar时，不再为窗口顶部预留高度
+    window()->setContentsMargins(0, d->_isHiddenByDecoration ? 0 : d->_pAppBarHeight + d->_pRibbonHeight, 0, 0);
     Q_EMIT pAppBarHeightChanged();
 }
 
@@ -902,6 +905,81 @@ bool ElaAppBar::eventFilter(QObject* obj, QEvent* event)
     }
     return QObject::eventFilter(obj, event);
 }
+
+#ifndef Q_OS_WIN
+void ElaAppBar::showEvent(QShowEvent* event)
+{
+    QWidget::showEvent(event);
+    Q_D(ElaAppBar);
+    if (d->_isDecorationChecked)
+    {
+        return;
+    }
+    // force：用户显式要求跳过装饰检测，不需等待窗口映射完成即可隐藏自绘AppBar
+    if (qgetenv("ELAWIDGETTOOLS_HIDE_APPBAR_ON_DECORATION").compare("force", Qt::CaseInsensitive) == 0)
+    {
+        d->_isDecorationChecked = true;
+        qWarning() << QStringLiteral("ElaAppBar：环境变量指定为force，跳过服务端装饰检测并隐藏自绘AppBar（平台: %1）。").arg(QGuiApplication::platformName());
+        hideAppBarForDecoration();
+        return;
+    }
+    // 窗口显示后再检测，此时frameGeometry已包含合成器提供的装饰
+    QTimer::singleShot(0, this, &ElaAppBar::detectServerSideDecoration);
+    // Wayland下窗口装饰信息可能稍晚才稳定，补一次延迟检测（检测完成后会自行跳过）
+    QTimer::singleShot(300, this, &ElaAppBar::detectServerSideDecoration);
+}
+
+void ElaAppBar::detectServerSideDecoration()
+{
+    Q_D(ElaAppBar);
+    if (d->_isDecorationChecked)
+    {
+        return;
+    }
+    QWidget* topLevelWidget = window();
+    if (!topLevelWidget || !topLevelWidget->isVisible() || !topLevelWidget->windowHandle())
+    {
+        // 窗口尚未完成映射，保留后续再次检测的机会
+        return;
+    }
+    d->_isDecorationChecked = true;
+    // frameGeometry与geometry的顶部差值即合成器提供的装饰高度
+    int frameTop = topLevelWidget->frameGeometry().top() - topLevelWidget->geometry().top();
+    // 部分平台不通过frameGeometry汇报装饰厚度，补充参考QWindow的装饰边距
+    int frameMarginTop = topLevelWidget->windowHandle()->frameMargins().top();
+    int decorationTop = qMax(frameTop, frameMarginTop);
+    if (decorationTop <= 0)
+    {
+        return;
+    }
+    // 环境变量取值（忽略大小写）：空或0不隐藏；force跳过检测直接隐藏（已在showEvent中处理）；其它非空值检测到装饰时隐藏
+    const QByteArray envValue = qgetenv("ELAWIDGETTOOLS_HIDE_APPBAR_ON_DECORATION");
+    const bool isHideEnabled = !envValue.isEmpty() && envValue != "0";
+    qWarning() << QStringLiteral("ElaAppBar：检测到合成器提供的服务端标题栏（平台: %1，frameTop: %2），自绘AppBar可能与其重复%3。")
+                      .arg(QGuiApplication::platformName())
+                      .arg(decorationTop)
+                      .arg(isHideEnabled ? QStringLiteral("，已隐藏自绘AppBar") : QStringLiteral("，当前保持现有外观"));
+    if (!isHideEnabled)
+    {
+        return;
+    }
+    hideAppBarForDecoration();
+}
+
+void ElaAppBar::hideAppBarForDecoration()
+{
+    Q_D(ElaAppBar);
+    if (d->_isHiddenByDecoration)
+    {
+        return;
+    }
+    d->_isHiddenByDecoration = true;
+    // AppBar不在父布局中，窗口顶部的留白由contentsMargins控制，需要一并收回
+    QMargins margins = window()->contentsMargins();
+    window()->setContentsMargins(margins.left(), qMax(0, margins.top() - height()), margins.right(), margins.bottom());
+    hide();
+}
+#endif
 
 #ifdef Q_OS_WIN
 void ElaAppBar::paintEvent(QPaintEvent* event)
