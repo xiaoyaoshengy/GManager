@@ -58,6 +58,12 @@ private:
     int _margins{8};
     bool _isHoverMaxButton{false};
     int _win7Margins{0};
+#ifndef Q_OS_WIN
+    // 服务端装饰检测是否已完成（每个AppBar只检测一次）
+    bool _isDecorationChecked{false};
+    // 是否因合成器已提供标题栏而隐藏了自绘AppBar
+    bool _isHiddenByDecoration{false};
+#endif
     void _changeMaxButtonAwesome(bool isMaximized);
     void _showAppBarMenu(QPoint point);
     void _updateCursor(int edges);

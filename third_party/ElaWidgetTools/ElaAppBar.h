@@ -48,6 +48,7 @@
 #endif
 
 class QMenu;
+class QShowEvent;
 class ElaAppBarPrivate;
 class ELA_EXPORT ElaAppBar : public QWidget
 {
@@ -94,8 +95,20 @@ Q_SIGNALS:
 
 protected:
     bool eventFilter(QObject* obj, QEvent* event) override;
+#ifndef Q_OS_WIN
+    // 首次显示后检测合成器是否强制提供了服务端标题栏（如 KWin 下的 xdg-decoration）
+    void showEvent(QShowEvent* event) override;
+#endif
 #ifdef Q_OS_WIN
     void paintEvent(QPaintEvent* event) override;
+#endif
+
+#ifndef Q_OS_WIN
+private:
+    // 一次性检测窗口是否存在服务端装饰，检测到后按需隐藏自绘AppBar（默认不改变外观）
+    void detectServerSideDecoration();
+    // 隐藏自绘AppBar并收回窗口顶部为其预留的留白（幂等，可重复调用）
+    void hideAppBarForDecoration();
 #endif
 };
 

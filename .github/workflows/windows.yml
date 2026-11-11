@@ -11,10 +11,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: 安装 Qt 6.6.2（MSVC 2019 64bit）
+      - name: 安装 Qt 6.8.3（MSVC 2019 64bit）
         uses: jurplel/install-qt-action@v4
         with:
-          version: '6.6.2'
+          version: '6.8.3'
           arch: win64_msvc2019_64
           cache: true
 

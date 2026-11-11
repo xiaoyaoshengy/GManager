@@ -1,4 +1,6 @@
 ﻿#include <QApplication>
+#include <QFileInfo>
+#include <QLibraryInfo>
 #include <QLocalServer>
 #include <QLocalSocket>
 #include <QPixmapCache>
@@ -44,7 +46,46 @@ void focusMainWindow(QWidget *window) {
 
 } // namespace
 
+#if defined(Q_OS_LINUX)
+// Linux 下优先使用 Wayland 原生窗口；输入法按平台选择：
+// Wayland 用 Qt 内建的 text-input-v3，xcb 用 fcitx5 的 Qt 插件（缺失时退回 XIM）
+void configurePlatformAndInputMethod() {
+  const bool waylandSession = !qEnvironmentVariableIsEmpty("WAYLAND_DISPLAY");
+  if (qEnvironmentVariableIsEmpty("QT_QPA_PLATFORM") && waylandSession) {
+    qputenv("QT_QPA_PLATFORM", "wayland");
+  }
+
+  const QByteArray platform = qgetenv("QT_QPA_PLATFORM");
+  const bool useWayland =
+      platform.startsWith("wayland") || (platform.isEmpty() && waylandSession);
+
+  if (useWayland) {
+    // QT_IM_MODULE=fcitx 会让 Qt 放弃内建 v3 输入上下文，这里显式切到 wayland
+    qputenv("QT_IM_MODULES", "wayland");
+    qunsetenv("QT_IM_MODULE");
+    qunsetenv("XMODIFIERS");
+    return;
+  }
+
+  qunsetenv("QT_IM_MODULES");
+  if (qEnvironmentVariableIsEmpty("QT_IM_MODULE")) {
+    qputenv("QT_IM_MODULE", "fcitx");
+  }
+  const QString plugins = QLibraryInfo::path(QLibraryInfo::PluginsPath);
+  if (qgetenv("QT_IM_MODULE") == "fcitx" &&
+      !QFileInfo::exists(plugins +
+                         "/platforminputcontexts/libfcitx5platforminputcontextplugin.so")) {
+    // 没有编译好的 fcitx5 插件时，用 fcitx5 的 XIM 服务兜底
+    qputenv("QT_IM_MODULE", "xim");
+  }
+}
+#endif
+
 int main(int argc, char *argv[]) {
+#if defined(Q_OS_LINUX)
+  configurePlatformAndInputMethod();
+#endif
+
 #if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
   QGuiApplication::setAttribute(Qt::AA_UseHighDpiPixmaps);
 #if (QT_VERSION >= QT_VERSION_CHECK(5, 14, 0))
