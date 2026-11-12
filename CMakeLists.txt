@@ -64,6 +64,16 @@ if(NOT WIN32)
   set(CMAKE_INSTALL_RPATH "\$ORIGIN/../lib")
 endif()
 
+# 打包专用开关：让构建产物直接带安装期 RPATH（$ORIGIN/../lib），
+# 打包脚本从 build-release 拷贝二进制后就是相对路径，不再依赖
+# patchelf/chrpath 改写。默认关闭：开启后构建树里的产物无法直接运行
+# （RUNPATH 指向不存在的 $ORIGIN/../lib），会影响 build/ 的日常调试。
+option(GMANAGER_PORTABLE_PACKAGE "构建安装包时使用 \$ORIGIN 相对 RPATH" OFF)
+if(NOT WIN32 AND GMANAGER_PORTABLE_PACKAGE)
+  set(CMAKE_BUILD_WITH_INSTALL_RPATH TRUE)
+  set(CMAKE_BUILD_RPATH "\$ORIGIN/../lib")
+endif()
+
 # 编译 ElaWidgetTools 库
 add_subdirectory(third_party/ElaWidgetTools)
 
