@@ -77,6 +77,94 @@ QStringList linkTexts(const QString &html) {
   return out;
 }
 
+// 新版详情页的信息列：dt.c-productInfo__key + dd.c-productInfo__value，
+// 按 dt 文本找对应行的 dd 内部 HTML
+QString infoRowHtml(const QString &html, const QStringList &keys) {
+  static const QRegularExpression rowRe(
+      QStringLiteral("<dt[^>]*>([^<]*)</dt\\s*>\\s*<dd[^>]*>(.*?)</dd\\s*>"),
+      QRegularExpression::CaseInsensitiveOption |
+          QRegularExpression::DotMatchesEverythingOption);
+  QRegularExpressionMatchIterator it = rowRe.globalMatch(html);
+  while (it.hasNext()) {
+    const QRegularExpressionMatch row = it.next();
+    const QString key = scraper_utils::plainText(row.captured(1));
+    for (const QString &wanted : keys) {
+      if (key.contains(wanted, Qt::CaseInsensitive)) {
+        return row.captured(2);
+      }
+    }
+  }
+  return QString();
+}
+
+// 作品介绍在 div.c-productContent__text 中：第一个非空段落是作品介绍，
+// 后续段落属于角色介绍与样例图说明，因此只取第一个非空段落
+QString descriptionHtml(const QString &html) {
+  static const QRegularExpression markerRe(
+      QStringLiteral("class=\"[^\"]*c-productContent__text[^\"]*\""));
+  QRegularExpressionMatchIterator it = markerRe.globalMatch(html);
+  while (it.hasNext()) {
+    const QRegularExpressionMatch match = it.next();
+    const QString inner =
+        scraper_utils::containerInnerHtml(html, match.capturedStart());
+    if (!scraper_utils::plainText(inner).isEmpty()) {
+      return inner;
+    }
+  }
+  return QString();
+}
+
+// 背景图候选：slider 里带 _img_main / _img_smp 的作品图，
+// 跳过缩略图（/resize/）与剧情插入图（/parts/）；优先 jpg，避免依赖 webp 插件
+QStringList bannerCandidates(const QString &html) {
+  QStringList out;
+  const auto collect = [&out](const QStringList &urls) {
+    for (const QString &raw : urls) {
+      const QString url = scraper_utils::absoluteUrl(raw.trimmed());
+      if (!(url.contains(QStringLiteral("_img_main")) ||
+            url.contains(QStringLiteral("_img_smp")))) {
+        continue;
+      }
+      if (url.contains(QStringLiteral("/parts/")) ||
+          url.contains(QStringLiteral("/resize/")) ||
+          url.endsWith(QStringLiteral(".webp"))) {
+        continue;
+      }
+      if (!out.contains(url)) {
+        out.append(url);
+      }
+    }
+  };
+  collect(scraper_utils::captures(
+      html, QStringLiteral("<img[^>]*\\ssrc=\"([^\"]+)\"")));
+  if (out.isEmpty()) {
+    collect(scraper_utils::captures(
+        html, QStringLiteral("<source[^>]*\\ssrcset=\"([^\"]+)\"")));
+  }
+  return out;
+}
+
+// 封面：og:image 就是作品主图，比在 slider 里挑更稳
+QString ogImageUrl(const QString &html) {
+  QString url = scraper_utils::firstCapture(
+      html, QStringLiteral(
+                "<meta[^>]*property=\"og:image\"[^>]*content=\"([^\"]+)\""));
+  if (url.isEmpty()) {
+    url = scraper_utils::firstCapture(
+        html, QStringLiteral(
+                  "<meta[^>]*content=\"([^\"]+)\"[^>]*property=\"og:image\""));
+  }
+  return scraper_utils::absoluteUrl(url);
+}
+
+// 新版详情页给出 5 分制平均分
+QString averageRatingText(const QString &html) {
+  return scraper_utils::plainText(scraper_utils::firstCapture(
+      html,
+      QStringLiteral("<p[^>]*class=\"[^\"]*c-ratingDetailTable__average[^\"]*\""
+                     "[^>]*>([^<]*)</p\\s*>")));
+}
+
 QList<ScrapeResult> parseSearch(const QString &html, const QString &source) {
   QList<ScrapeResult> results;
   static const QRegularExpression blockRe(
@@ -130,7 +218,7 @@ QList<ScrapeResult> parseSearch(const QString &html, const QString &source) {
 }
 
 ScrapeResult parseDetails(const QString &html, const QString &id,
-                          const QString &source) {
+                          const QString &source, const RatingRange &range) {
   ScrapeResult result;
   result.id = id;
   result.source = source;
@@ -143,42 +231,23 @@ ScrapeResult parseDetails(const QString &html, const QString &id,
       QRegularExpression::CaseInsensitiveOption |
           QRegularExpression::DotMatchesEverythingOption));
 
-  const int marker = html.indexOf(QStringLiteral("itemprop=\"description\""));
-  const QString rawDescription = scraper_utils::sanitizeDescriptionHtml(
-      scraper_utils::containerInnerHtml(html, marker));
+  const QString rawDescription =
+      scraper_utils::sanitizeDescriptionHtml(descriptionHtml(html));
   result.description = optimizeDescription(rawDescription);
 
-  const QString makerHtml = classInnerHtml(html, QStringLiteral("maker_name"));
+  // 制作商：信息列 サークル名 行里的 a.c-productInfo__makerName
+  const QString makerHtml = infoRowHtml(
+      html, {QStringLiteral("サークル名"), QStringLiteral("ブランド名")});
   result.developer = scraper_utils::plainText(makerHtml);
-  const QString makerHref =
-      scraper_utils::absoluteUrl(scraper_utils::firstCapture(
-          makerHtml, QStringLiteral("<a[^>]*href=\"([^\"]+)\"")));
+  const QString makerHref = scraper_utils::absoluteUrl(
+      scraper_utils::attribute(makerHtml, QStringLiteral("href")));
 
-  const QStringList tags =
-      linkTexts(classInnerHtml(html, QStringLiteral("main_genre")));
-  result.tags = tags.join(QStringLiteral("、"));
-
-  static const QRegularExpression rowRe(
-      QStringLiteral("<th[^>]*>([^<]*)</th\\s*><td[^>]*>(.*?)</td\\s*>"),
-      QRegularExpression::CaseInsensitiveOption |
-          QRegularExpression::DotMatchesEverythingOption);
-  QStringList categories;
-  QRegularExpressionMatchIterator rowIt = rowRe.globalMatch(html);
-  while (rowIt.hasNext()) {
-    const QRegularExpressionMatch row = rowIt.next();
-    const QString key = scraper_utils::plainText(row.captured(1));
-    if (key.contains(QStringLiteral("类型")) ||
-        key.contains(QStringLiteral("作品类型")) ||
-        key.contains(QStringLiteral("ジャンル")) ||
-        key.contains(QStringLiteral("Genre"), Qt::CaseInsensitive)) {
-      for (const QString &text : linkTexts(row.captured(2))) {
-        if (!categories.contains(text)) {
-          categories.append(text);
-        }
-      }
-    }
-  }
-  result.categories = categories.join(QStringLiteral("、"));
+  result.tags = linkTexts(infoRowHtml(html, {QStringLiteral("ジャンル")}))
+                    .join(QStringLiteral("、"));
+  result.categories = linkTexts(infoRowHtml(html, {QStringLiteral("作品形式"),
+                                                   QStringLiteral("类型"),
+                                                   QStringLiteral("Genre")}))
+                          .join(QStringLiteral("、"));
 
   QStringList links;
   links.append(
@@ -189,35 +258,20 @@ ScrapeResult parseDetails(const QString &html, const QString &id,
   links.removeDuplicates();
   result.links = links.join(QLatin1Char('\n'));
 
-  // 背景图：作品页里带 _img_main / _img_smp 的 data-src
-  for (const QString &raw : scraper_utils::captures(
-           html, QStringLiteral("<[^>]*data-src=\"([^\"]+)\""))) {
-    const QString url = scraper_utils::absoluteUrl(raw);
-    if ((url.contains(QStringLiteral("_img_main")) ||
-         url.contains(QStringLiteral("_img_smp"))) &&
-        !result.bannerUrls.contains(url)) {
-      result.bannerUrls.append(url);
-    }
-  }
+  // 背景图：slider 里的作品主图与样图
+  result.bannerUrls = bannerCandidates(html);
 
-  // 封面：srcset 中带 img_main 的第一项，否则用首张背景图
-  const QStringList srcsets = scraper_utils::captures(
-      html, QStringLiteral("<[^>]*srcset=\"([^\"]+)\""));
-  for (const QString &srcset : srcsets) {
-    if (!srcset.contains(QStringLiteral("img_main"))) {
-      continue;
-    }
-    const QString first = srcset.split(QLatin1Char(','))
-                              .value(0)
-                              .split(QLatin1Char(' '))
-                              .value(0);
-    result.coverUrl = scraper_utils::absoluteUrl(first);
-    if (!result.coverUrl.isEmpty()) {
-      break;
-    }
-  }
+  // 封面：og:image（作品主图），否则用首张背景图
+  result.coverUrl = ogImageUrl(html);
   if (result.coverUrl.isEmpty() && !result.bannerUrls.isEmpty()) {
     result.coverUrl = result.bannerUrls.first();
+  }
+
+  // 评分：新版详情页提供 5 分制平均分，无人评分时没有该元素
+  bool ratingOk = false;
+  const double ratingValue = averageRatingText(html).toDouble(&ratingOk);
+  if (ratingOk) {
+    result.rating = normalizeRating(QJsonValue(ratingValue), range);
   }
 
   return result;
@@ -238,8 +292,8 @@ DlsiteScraper::~DlsiteScraper() {}
 QString DlsiteScraper::sourceName() const { return QStringLiteral("dlsite"); }
 
 RatingRange DlsiteScraper::ratingRange() const {
-  // DLsite 无评分字段，占位
-  return RatingRange{0.0, 100.0};
+  // 详情页的平均分本身就是 5 分制，换算后数值不变
+  return RatingRange{0.0, 5.0};
 }
 
 void DlsiteScraper::fail(const QString &message) {
@@ -305,14 +359,25 @@ void DlsiteScraper::fetchDetails(const QString &id) {
     }
 
     const QString html = QString::fromUtf8(payload);
-    ScrapeResult result = parseDetails(html, productId, sourceName());
-    if (result.title.isEmpty()) {
+    ScrapeResult result =
+        parseDetails(html, productId, sourceName(), ratingRange());
+    // 标题解析成功但其它字段全空，说明详情页结构又变了，按失败处理，
+    // 避免把只有标题的空壳记录静默入库
+    const bool hasDetail =
+        !result.description.isEmpty() || !result.developer.isEmpty() ||
+        !result.tags.isEmpty() || !result.categories.isEmpty() ||
+        !result.bannerUrls.isEmpty();
+    if (result.title.isEmpty() || !hasDetail) {
       fail(QStringLiteral("DLsite 详情解析失败"));
       return;
     }
-    logMessage(LogsManager::Info, QString("详情获取成功：%1（背景图 %2 张）")
-                                      .arg(productId)
-                                      .arg(result.bannerUrls.size()));
+    logMessage(LogsManager::Info,
+               QString("详情获取成功：%1（背景图 %2 张，标签 %3 个）")
+                   .arg(productId)
+                   .arg(result.bannerUrls.size())
+                   .arg(result.tags.isEmpty()
+                            ? 0
+                            : result.tags.count(QStringLiteral("、")) + 1));
     emit detailsReady(result);
   });
 }
