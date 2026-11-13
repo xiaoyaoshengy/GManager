@@ -63,6 +63,8 @@ private:
   QImage currentCoverImage() const;
 
   GameInfo _game;
+  // 封面当前使用的设备像素比：窗口换到不同缩放的屏幕时据此重建
+  qreal _coverDpr{1.0};
 
   BannerBackground *_bannerBackground{nullptr};
   QLabel *_coverLabel{nullptr};

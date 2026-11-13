@@ -33,6 +33,7 @@
 #include "floatingtopbutton.h"
 #include "global_defines.h"
 #include "imageeditdialog.h"
+#include "imagerender.h"
 #include "imageviewerdialog.h"
 #include "networktextbrowser.h"
 #include "playstatus.h"
@@ -108,29 +109,40 @@ protected:
       return;
     }
 
-    if (_cache.isNull() || _cache.size() != QSize(width, height)) {
-      rebuildCache(width, height);
+    // 缓存按物理像素保存：尺寸或屏幕缩放比变化都要重建，否则把窗口拖到
+    // 另一块不同缩放的屏幕后会继续复用旧密度的图
+    const qreal dpr = qMax<qreal>(devicePixelRatioF(), 1.0);
+    const QSize deviceTarget = deviceSize(QSize(width, height), dpr);
+    if (_cache.isNull() || !qFuzzyCompare(_cache.devicePixelRatio(), dpr) ||
+        _cache.size() != deviceTarget) {
+      rebuildCache(deviceTarget, dpr);
     }
     QPainter painter(this);
+    // dpr 为小数时物理尺寸取整后仍有亚像素级缩放，平滑兜底
+    painter.setRenderHint(QPainter::SmoothPixmapTransform, true);
     painter.drawPixmap(0, 0, _cache);
   }
 
 private:
-  void rebuildCache(int width, int height) {
+  // deviceTarget 是物理像素尺寸；虚化渐变也在物理像素上做，
+  // 否则先按逻辑尺寸虚化再被放大，渐变边缘会齿化
+  void rebuildCache(const QSize &deviceTarget, qreal dpr) {
     QImage scaled = _image
-                        .scaled(QSize(width, height), Qt::IgnoreAspectRatio,
+                        .scaled(deviceTarget, Qt::IgnoreAspectRatio,
                                 Qt::SmoothTransformation)
                         .convertToFormat(QImage::Format_ARGB32_Premultiplied);
     {
       QPainter painter(&scaled);
-      if (_contentTop < height) {
+      const int contentTop = qRound(_contentTop * dpr);
+      if (contentTop < scaled.height()) {
         painter.setCompositionMode(QPainter::CompositionMode_DestinationIn);
-        QLinearGradient fade(0, _contentTop, 0, height);
+        QLinearGradient fade(0, contentTop, 0, scaled.height());
         fade.setColorAt(0.0, QColor(0, 0, 0, 255));
         fade.setColorAt(1.0, QColor(0, 0, 0, 0));
         painter.fillRect(scaled.rect(), fade);
       }
     }
+    scaled.setDevicePixelRatio(dpr);
     _cache = QPixmap::fromImage(scaled);
   }
 
@@ -362,6 +374,11 @@ void GameDetailPage::scrollToTopSmooth() {
 void GameDetailPage::resizeEvent(QResizeEvent *event) {
   ElaScrollPage::resizeEvent(event);
   positionTopButton();
+  // 窗口被拖到另一块不同缩放的屏幕时，封面要按新的 dpr 重建
+  if (_coverLabel &&
+      !qFuzzyCompare(_coverLabel->devicePixelRatioF(), _coverDpr)) {
+    updateCover();
+  }
   if (!_columnsGrid) {
     return;
   }
@@ -409,8 +426,11 @@ void GameDetailPage::updateCover() {
     _coverLabel->clear();
     return;
   }
-  _coverLabel->setPixmap(QPixmap::fromImage(image.scaled(
-      _coverLabel->size(), Qt::KeepAspectRatio, Qt::SmoothTransformation)));
+  // 按标签所在屏幕的缩放比生成物理像素：QLabel 绘制带 dpr 的 pixmap
+  // 是 1:1 拷贝，不会退化成最近邻放大
+  _coverDpr = qMax<qreal>(_coverLabel->devicePixelRatioF(), 1.0);
+  _coverLabel->setPixmap(pixmapForDevice(image, _coverLabel->size(),
+                                         Qt::KeepAspectRatio, _coverDpr));
 }
 
 QImage GameDetailPage::currentCoverImage() const {
