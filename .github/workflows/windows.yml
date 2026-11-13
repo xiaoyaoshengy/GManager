@@ -11,11 +11,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: 安装 Qt 6.8.3（MSVC 2019 64bit）
+      - name: 安装 Qt 6.8.3（MSVC 2022 64bit）
         uses: jurplel/install-qt-action@v4
         with:
           version: '6.8.3'
-          arch: win64_msvc2019_64
+          arch: win64_msvc2022_64
           cache: true
 
       - name: 配置 CMake
@@ -36,9 +36,13 @@ jobs:
           $dll = Get-ChildItem -Recurse build -Filter ElaWidgetTools.dll |
             Select-Object -First 1
           if ($dll) { Copy-Item $dll.FullName dist/ }
-          & "$env:QT_ROOT_DIR\bin\windeployqt.exe" --release --compiler-runtime `
-            --no-translations --no-system-d3d-compiler --no-opengl-sw `
-            dist/GManager.exe
+          # 一并把 ElaWidgetTools.dll 交给 windeployqt，确保它依赖的 Qt 库
+          # 也被扫描到；缺失时不传，避免命令失败
+          $deployArgs = @('--release', '--compiler-runtime',
+            '--no-translations', '--no-system-d3d-compiler',
+            '--no-opengl-sw', 'dist/GManager.exe')
+          if ($dll) { $deployArgs += 'dist/ElaWidgetTools.dll' }
+          & "$env:QT_ROOT_DIR\bin\windeployqt.exe" @deployArgs
           # 兜底：若仍未带上 MSVC 运行库，从 VS 的 Redist 目录补拷
           if (-not (Test-Path dist/msvcp140.dll)) {
             $crt = Get-ChildItem `
