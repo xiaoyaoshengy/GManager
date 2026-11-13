@@ -242,7 +242,8 @@ void ElaAppBar::setAppBarHeight(int height)
     d->_pAppBarHeight = height;
     setFixedHeight(d->_pAppBarHeight);
     // 已因服务端装饰隐藏AppBar时，不再为窗口顶部预留高度
-    window()->setContentsMargins(0, d->_isHiddenByDecoration ? 0 : d->_pAppBarHeight + d->_pRibbonHeight, 0, 0);
+    const int top = d->_isHiddenByDecoration ? 0 : d->_pAppBarHeight + d->_pRibbonHeight;
+    window()->setContentsMargins(0, top, 0, 0);
     Q_EMIT pAppBarHeightChanged();
 }
 
@@ -257,7 +258,8 @@ void ElaAppBar::setRibbonHeight(int height)
     Q_D(ElaAppBar);
     d->_pRibbonHeight = height;
     // 已因服务端装饰隐藏AppBar时，不再为窗口顶部预留高度
-    window()->setContentsMargins(0, d->_isHiddenByDecoration ? 0 : d->_pAppBarHeight + d->_pRibbonHeight, 0, 0);
+    const int top = d->_isHiddenByDecoration ? 0 : d->_pAppBarHeight + d->_pRibbonHeight;
+    window()->setContentsMargins(0, top, 0, 0);
     Q_EMIT pAppBarHeightChanged();
 }
 

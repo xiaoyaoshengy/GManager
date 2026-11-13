@@ -58,12 +58,11 @@ private:
     int _margins{8};
     bool _isHoverMaxButton{false};
     int _win7Margins{0};
-#ifndef Q_OS_WIN
-    // 服务端装饰检测是否已完成（每个AppBar只检测一次）
+    // 服务端装饰检测只在非 Windows 平台启用（Wayland/xcb 下合成器可能
+    // 自带标题栏）；这里无条件声明，让 Windows 也编译共享代码，
+    // Windows 上二者恒为 false，行为与检测前一致
     bool _isDecorationChecked{false};
-    // 是否因合成器已提供标题栏而隐藏了自绘AppBar
     bool _isHiddenByDecoration{false};
-#endif
     void _changeMaxButtonAwesome(bool isMaximized);
     void _showAppBarMenu(QPoint point);
     void _updateCursor(int edges);
