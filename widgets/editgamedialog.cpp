@@ -12,9 +12,9 @@
 #include "ElaText.h"
 #include "ElaToolButton.h"
 
-#include "description.h"
 #include "playstatus.h"
 #include "scrapepreviewdialog.h"
+#include "scraper_utils.h"
 #include "scrapesearchdialog.h"
 
 namespace GManager {
@@ -155,8 +155,8 @@ GameInfo EditGameDialog::updatedGame() const {
   game.categories = _categoriesEdit->text().trimmed();
   game.links = _linksEdit->toPlainText().trimmed();
   const QString description = _descriptionEdit->toPlainText().trimmed();
-  game.description = hasBlockLevelTags(description)
-                         ? optimizeDescription(description)
+  game.description = scraper_utils::hasBlockLevelTags(description)
+                         ? scraper_utils::optimizeDescription(description)
                          : description;
   game.playStatus = _statusCombo->currentText();
   return game;

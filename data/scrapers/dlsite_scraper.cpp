@@ -7,7 +7,6 @@
 #include <QStringList>
 #include <QUrl>
 
-#include "description.h"
 #include "logs.h"
 #include "scraper_utils.h"
 
@@ -97,21 +96,14 @@ QString infoRowHtml(const QString &html, const QStringList &keys) {
   return QString();
 }
 
-// 作品介绍在 div.c-productContent__text 中：第一个非空段落是作品介绍，
-// 后续段落属于角色介绍与样例图说明，因此只取第一个非空段落
+// 作品介绍取 div.c-productInfo（“作品内容”区块）的整块内容，
+// 清洗交给 optimizeDescription()
 QString descriptionHtml(const QString &html) {
-  static const QRegularExpression markerRe(
-      QStringLiteral("class=\"[^\"]*c-productContent__text[^\"]*\""));
-  QRegularExpressionMatchIterator it = markerRe.globalMatch(html);
-  while (it.hasNext()) {
-    const QRegularExpressionMatch match = it.next();
-    const QString inner =
-        scraper_utils::containerInnerHtml(html, match.capturedStart());
-    if (!scraper_utils::plainText(inner).isEmpty()) {
-      return inner;
-    }
+  const int markerPos = html.indexOf(QStringLiteral("class=\"c-productInfo\""));
+  if (markerPos < 0) {
+    return QString();
   }
-  return QString();
+  return scraper_utils::containerInnerHtml(html, markerPos);
 }
 
 // 背景图候选：slider 里带 _img_main / _img_smp 的作品图，
@@ -233,7 +225,7 @@ ScrapeResult parseDetails(const QString &html, const QString &id,
 
   const QString rawDescription =
       scraper_utils::sanitizeDescriptionHtml(descriptionHtml(html));
-  result.description = optimizeDescription(rawDescription);
+  result.description = scraper_utils::optimizeDescription(rawDescription);
 
   // 制作商：信息列 サークル名 行里的 a.c-productInfo__makerName
   const QString makerHtml = infoRowHtml(

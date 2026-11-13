@@ -7,7 +7,6 @@
 #include <QStringList>
 #include <QUrl>
 
-#include "description.h"
 #include "logs.h"
 #include "scraper_utils.h"
 
@@ -125,7 +124,7 @@ ScrapeResult parseDetails(const QString &html, const QString &id,
   const int marker = html.indexOf(QStringLiteral("id=\"detailGuide\""));
   const QString rawDescription = scraper_utils::sanitizeDescriptionHtml(
       scraper_utils::containerInnerHtml(html, marker));
-  result.description = optimizeDescription(rawDescription);
+  result.description = scraper_utils::optimizeDescription(rawDescription);
 
   QStringList links;
   links.append(QString("%1/detail/%2/").arg(kBaseUrl, id));
