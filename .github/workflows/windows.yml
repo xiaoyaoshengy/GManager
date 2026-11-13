@@ -24,7 +24,23 @@ jobs:
           -DQT_SDK_DIR="$env:QT_ROOT_DIR"
 
       - name: 构建
-        run: cmake --build build --config Release --parallel
+        run: |
+          cmake --build build --config Release --parallel *>&1 |
+            Tee-Object -FilePath build.log
+          $code = $LASTEXITCODE
+          if ($code -ne 0) {
+            Write-Host "===== 构建失败，最后 150 行日志 ====="
+            Get-Content build.log -Tail 150
+            # 把关键错误行写成 annotation，便于在 Checks 页直接定位
+            $errors = Select-String -Path build.log `
+              -Pattern 'error|错误|LNK\d{4}|C\d{4}' | Select-Object -Last 15
+            foreach ($e in $errors) {
+              $line = $e.Line.Trim()
+              if ($line.Length -gt 500) { $line = $line.Substring(0, 500) }
+              Write-Host "::error title=build::$line"
+            }
+            exit $code
+          }
 
       - name: 部署 Qt 运行库与许可
         run: |
