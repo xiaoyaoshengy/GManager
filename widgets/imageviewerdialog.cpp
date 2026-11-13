@@ -5,6 +5,8 @@
 #include <QPixmap>
 #include <QScreen>
 
+#include "imagerender.h"
+
 namespace GManager {
 
 ImageViewerDialog::ImageViewerDialog(const QImage &image, QWidget *parent)
@@ -42,8 +44,10 @@ ImageViewerDialog::ImageViewerDialog(const QImage &image, QWidget *parent)
   label->setGeometry(0, appBarHeight, width, content.height());
   label->setAlignment(Qt::AlignCenter);
   if (!image.isNull()) {
-    label->setPixmap(QPixmap::fromImage(
-        image.scaled(content, Qt::KeepAspectRatio, Qt::SmoothTransformation)));
+    // dpr 取对话框将要落位的屏幕：窗口尚未显示时 label 自己的 dpr 未必可信
+    const qreal dpr =
+        targetScreen ? qMax<qreal>(targetScreen->devicePixelRatio(), 1.0) : 1.0;
+    label->setPixmap(pixmapForDevice(image, content, Qt::KeepAspectRatio, dpr));
   }
 }
 

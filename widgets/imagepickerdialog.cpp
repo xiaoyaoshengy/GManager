@@ -25,6 +25,7 @@
 #include "ElaText.h"
 
 #include "global_defines.h"
+#include "imagerender.h"
 
 namespace GManager {
 
@@ -62,12 +63,17 @@ public:
                              -kThumbnailGap / 2, -kThumbnailGap / 2);
     const QPixmap pixmap = index.data(Qt::DecorationRole).value<QPixmap>();
     if (!pixmap.isNull()) {
+      // 源图按绘制设备的物理像素生成，目标矩形仍用逻辑坐标，
+      // 绘制阶段就是 1:1 拷贝，不会退化成最近邻放大
+      const qreal dpr =
+          painter->device() ? painter->device()->devicePixelRatio() : 1.0;
+      const QSize targetDevice = deviceSize(content.size(), dpr);
       const QPixmap scaled =
-          pixmap.scaled(content.size(), Qt::KeepAspectRatioByExpanding,
+          pixmap.scaled(targetDevice, Qt::KeepAspectRatioByExpanding,
                         Qt::SmoothTransformation);
-      const QRect source((scaled.width() - content.width()) / 2,
-                         (scaled.height() - content.height()) / 2,
-                         content.width(), content.height());
+      const QRect source((scaled.width() - targetDevice.width()) / 2,
+                         (scaled.height() - targetDevice.height()) / 2,
+                         targetDevice.width(), targetDevice.height());
       painter->drawPixmap(content, scaled, source);
     } else {
       painter->fillRect(content, option.palette.base());

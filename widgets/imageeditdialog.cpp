@@ -28,6 +28,7 @@
 #include "ElaToolButton.h"
 
 #include "global_defines.h"
+#include "imagerender.h"
 #include "scraper.h"
 #include "scrapesearchdialog.h"
 
@@ -295,8 +296,10 @@ void ImageEditDialog::chooseFile() {
 
 void ImageEditDialog::setPreview(const QImage &image) {
   _image = image;
-  _preview->setPixmap(QPixmap::fromImage(image.scaled(
-      _preview->size(), Qt::KeepAspectRatio, Qt::SmoothTransformation)));
+  // 按预览标签的物理像素生成，避免高分屏下被最近邻放大
+  _preview->setPixmap(pixmapForDevice(image, _preview->size(),
+                                      Qt::KeepAspectRatio,
+                                      _preview->devicePixelRatioF()));
   _hint->setText(
       QString("预览：%1 × %2").arg(image.width()).arg(image.height()));
 }
@@ -318,9 +321,9 @@ void ImageEditDialog::updateCandidateGridSize() {
 }
 
 QSize ImageEditDialog::thumbnailSize() const {
-  // 缩略图按格子的两倍像素准备，避免高分屏下发虚
+  // 缩略图按格子的物理像素准备：dpr 不再假设为 2，125%/150%/300% 下都不发虚
   const QSize icon = _candidateView->iconSize();
-  return QSize(qMax(1, icon.width()) * 2, qMax(1, icon.height()) * 2);
+  return deviceSize(icon, _candidateView->devicePixelRatioF());
 }
 
 void ImageEditDialog::scrapeImages() {

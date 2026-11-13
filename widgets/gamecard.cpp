@@ -1,8 +1,10 @@
 #include "gamecard.h"
 
 #include <QCoreApplication>
+#include <QEnterEvent>
 #include <QEvent>
 #include <QFont>
+#include <QFontMetrics>
 #include <QImageReader>
 #include <QMetaObject>
 #include <QMouseEvent>
@@ -25,6 +27,11 @@
 namespace GManager {
 
 namespace {
+
+// 标题跑马灯：首尾各停 1 秒，按固定速度左移；kTitlePadding 是左右内边距
+constexpr int kTitlePadding = 4;
+constexpr int kTitleMarqueePauseMs = 1000;
+constexpr int kTitleMarqueeSpeed = 30;
 
 ElaIconType::IconName playStatusIcon(const QString &status) {
   if (status == QStringLiteral("未游玩")) {
@@ -151,6 +158,13 @@ GameCard::GameCard(QWidget *parent) : QWidget(parent) {
   _coverRequested = false;
   _drawBound = false;
   _scaleFactor = 1;
+  _titleOffset = 0.0;
+  _titleHovered = false;
+
+  // 标题命中需要鼠标移动事件，而不只是按下/释放
+  setMouseTracking(true);
+  // 复用一个动画对象：悬停在标题上反复进出时不反复分配
+  _titleScroll = new QPropertyAnimation(this, "titleOffset", this);
 
   connect(eTheme, &ElaTheme::themeModeChanged, this,
           [=](ElaThemeType::ThemeMode themeMode) { _themeMode = themeMode; });
@@ -203,6 +217,9 @@ void GameCard::applyCover(const QPixmap &cover) {
 
 void GameCard::setTitle(const QString &title) {
   _title = title;
+  // 换了标题，旧的滚动进度不再适用；鼠标再动一下会重新启动
+  _titleHovered = false;
+  stopTitleMarquee();
   update();
 }
 
@@ -217,10 +234,93 @@ qreal GameCard::scaleFactor() const { return _scaleFactor; }
 
 void GameCard::setScaleFactor(const qreal factor) { _scaleFactor = factor; }
 
+qreal GameCard::titleOffset() const { return _titleOffset; }
+
+void GameCard::setTitleOffset(const qreal offset) {
+  if (qFuzzyCompare(_titleOffset, offset)) {
+    return;
+  }
+  _titleOffset = offset;
+  update();
+}
+
+QRect GameCard::titleRect() const {
+  return QRect(0, COVER_HEIGHT + 3, kGameCardWidth,
+               kGameCardHeight - COVER_HEIGHT - 3);
+}
+
+QFont GameCard::titleFont() const {
+  QFont result = font();
+  result.setPixelSize(15);
+  return result;
+}
+
+bool GameCard::titleOverflows() const {
+  const int textWidth =
+      QFontMetrics(titleFont()).horizontalAdvance(_title) + 2 * kTitlePadding;
+  return textWidth > kGameCardWidth;
+}
+
+void GameCard::updateTitleHover(bool insideTitle) {
+  if (insideTitle == _titleHovered) {
+    return;
+  }
+  _titleHovered = insideTitle;
+  if (insideTitle) {
+    startTitleMarquee();
+  } else {
+    stopTitleMarquee();
+  }
+}
+
+// 循环跑马灯：停 1 秒 -> 匀速左移露出被省略的部分 -> 末尾停 1 秒 -> 回到起点
+void GameCard::startTitleMarquee() {
+  if (!_titleScroll || !titleOverflows()) {
+    return;
+  }
+  const int textWidth =
+      QFontMetrics(titleFont()).horizontalAdvance(_title) + 2 * kTitlePadding;
+  const int extra = textWidth - kGameCardWidth;
+  if (extra <= 0) {
+    return;
+  }
+  const int moveMs = qMax(1200, extra * 1000 / kTitleMarqueeSpeed);
+  const int totalMs = kTitleMarqueePauseMs * 2 + moveMs;
+
+  _titleScroll->stop();
+  _titleScroll->setDuration(totalMs);
+  _titleScroll->setLoopCount(-1);
+  _titleScroll->setKeyValueAt(0.0, 0.0);
+  _titleScroll->setKeyValueAt(qreal(kTitleMarqueePauseMs) / totalMs, 0.0);
+  _titleScroll->setKeyValueAt(qreal(kTitleMarqueePauseMs + moveMs) / totalMs,
+                              qreal(extra));
+  _titleScroll->setKeyValueAt(1.0, qreal(extra));
+  _titleScroll->start();
+}
+
+void GameCard::stopTitleMarquee() {
+  if (_titleScroll) {
+    _titleScroll->stop();
+  }
+  if (_titleOffset != 0.0) {
+    _titleOffset = 0.0;
+    update();
+  }
+}
+
 bool GameCard::event(QEvent *event) {
   switch (event->type()) {
   case QEvent::Enter: {
     _drawBound = true;
+    // 直接从卡片外部移入标题区时只会收到 Enter 而没有 MouseMove，
+    // 这里用 Enter 自带的位置补一次启动判定；只在命中标题时启动，
+    // 不命中交给后续 MouseMove 处理，避免平台补发的 Enter 位置不准
+    // 把已经在滚动的标题停掉
+    const QPoint enterPos =
+        static_cast<QEnterEvent *>(event)->position().toPoint();
+    if (titleRect().contains(enterPos)) {
+      updateTitleHover(true);
+    }
     QPropertyAnimation *hoverAnimation =
         new QPropertyAnimation(this, "scaleFactor", this);
     connect(hoverAnimation, &QPropertyAnimation::valueChanged, this,
@@ -233,6 +333,8 @@ bool GameCard::event(QEvent *event) {
   }
   case QEvent::Leave: {
     _drawBound = false;
+    _titleHovered = false;
+    stopTitleMarquee();
     QPropertyAnimation *hoverAnimation =
         new QPropertyAnimation(this, "scaleFactor", this);
     connect(hoverAnimation, &QPropertyAnimation::valueChanged, this,
@@ -243,11 +345,22 @@ bool GameCard::event(QEvent *event) {
     hoverAnimation->start(QAbstractAnimation::DeleteWhenStopped);
     break;
   }
+  case QEvent::Hide: {
+    // 卡片被视口回收或切页隐藏：停掉跑马灯，避免隐藏控件继续驱动重绘
+    _titleHovered = false;
+    stopTitleMarquee();
+    break;
+  }
   default:
     break;
   }
 
   return QWidget::event(event);
+}
+
+void GameCard::mouseMoveEvent(QMouseEvent *event) {
+  updateTitleHover(titleRect().contains(event->position().toPoint()));
+  QWidget::mouseMoveEvent(event);
 }
 
 void GameCard::mouseReleaseEvent(QMouseEvent *event) {
@@ -328,17 +441,24 @@ void GameCard::paintEvent(QPaintEvent *event) {
   painter.setPen(ElaThemeColor(_themeMode, BasicText));
 
   // 标题区域
-  QRect titleRect(0, COVER_HEIGHT + 3, kGameCardWidth,
-                  kGameCardHeight - COVER_HEIGHT - 3);
+  const QRect titleArea = titleRect();
 
   // 标题绘制
-  QFont font = painter.font();
-  font.setPixelSize(15);
-  painter.setFont(font);
-  // 文本过长自动省略
-  QFontMetrics fontWidth(painter.font());
-  QString title = fontWidth.elidedText(_title, Qt::ElideRight, kGameCardWidth);
-  painter.drawText(titleRect, Qt::AlignCenter, title);
+  painter.setFont(titleFont());
+  if (_titleScroll && _titleScroll->state() == QAbstractAnimation::Running) {
+    // 跑马灯：整段标题随偏移左移，首尾各留一段内边距，超出卡片的部分裁掉
+    const int textWidth =
+        painter.fontMetrics().horizontalAdvance(_title) + 2 * kTitlePadding;
+    painter.setClipRect(titleArea);
+    painter.drawText(QRectF(titleArea.x() + kTitlePadding - _titleOffset,
+                            titleArea.y(), textWidth, titleArea.height()),
+                     Qt::AlignLeft | Qt::AlignVCenter, _title);
+  } else {
+    // 文本过长自动省略
+    const QString title = painter.fontMetrics().elidedText(
+        _title, Qt::ElideRight, titleArea.width());
+    painter.drawText(titleArea, Qt::AlignCenter, title);
+  }
   painter.restore();
 }
 
